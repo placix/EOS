@@ -157,6 +157,70 @@ class TestEOSDash:
         assert 'id="config-search"' in response.text
         assert 'value="Latitude"' in response.text
 
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/",
+            "/eosdash/about",
+            "/eosdash/admin",
+            "/eosdash/configuration",
+            "/eosdash/plan",
+            "/eosdash/prediction",
+        ],
+    )
+    def test_full_pages_use_stable_asset_base(self, server_setup_for_class, path):
+        """Direct page loads and refreshes resolve local assets from the app root."""
+        base = server_setup_for_class["eosdash_server"]
+
+        response = requests.get(f"{base}{path}", timeout=10)
+
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        assert soup.select_one('base[href="/"]') is not None
+        assert soup.select_one(
+            'link[href="eosdash/assets/vendor/franken-core-2.0.0.min.css"]'
+        ) is not None
+
+    def test_ingress_page_uses_ingress_asset_base(self, server_setup_for_class):
+        """Ingress page refreshes retain the Home Assistant proxy prefix for assets."""
+        base = server_setup_for_class["eosdash_server"]
+        ingress_path = "/api/hassio_ingress/TOKEN"
+
+        response = requests.get(
+            f"{base}/eosdash/configuration",
+            headers={"X-Ingress-Path": ingress_path},
+            timeout=10,
+        )
+
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        assert soup.select_one(f'base[href="{ingress_path}/"]') is not None
+
+    def test_htmx_fragment_does_not_include_document_base(self, server_setup_for_class):
+        """HTMX swaps must not insert a base element into the page body."""
+        base = server_setup_for_class["eosdash_server"]
+
+        response = requests.get(
+            f"{base}/eosdash/about",
+            headers={"HX-Request": "true"},
+            timeout=10,
+        )
+
+        response.raise_for_status()
+        assert BeautifulSoup(response.text, "html.parser").find("base") is None
+
+    def test_local_stylesheet_is_served(self, server_setup_for_class):
+        """The bundled MonsterUI stylesheet is available from the mounted asset route."""
+        base = server_setup_for_class["eosdash_server"]
+
+        response = requests.get(
+            f"{base}/eosdash/assets/vendor/franken-core-2.0.0.min.css", timeout=10
+        )
+
+        response.raise_for_status()
+        assert response.headers["content-type"].startswith("text/css")
+        assert len(response.content) > 100_000
+
     def test_ingress_safe_links(self, server_setup_for_class, monkeypatch, tmp_path):
         base = server_setup_for_class["eosdash_server"]
 

@@ -3,6 +3,7 @@ import os
 import sys
 import traceback
 from pathlib import Path
+from typing import Any
 
 import psutil
 import requests
@@ -235,6 +236,15 @@ app.mount(
 )
 
 
+def page_with_base(request: Request, content: Any) -> Any:
+    """Add a stable document base to full pages while leaving HTMX fragments untouched."""
+    if request.headers.get("HX-Request", "").lower() == "true":
+        return content
+
+    root_path = str(request.scope.get("root_path", "")).rstrip("/")
+    return Base(href=f"{root_path}/"), content
+
+
 def eos_server() -> tuple[str, int]:
     """Retrieves the EOS server host and port configuration.
 
@@ -276,10 +286,8 @@ def get_eosdash(request: Request):  # type: ignore
     Returns:
         Page: The main dashboard page with navigation links and footer.
     """
-    root_path: str = request.scope.get("root_path", "")
-
-    return (
-        Base(href=f"{root_path}/") if root_path else None,
+    return page_with_base(
+        request,
         Page(
             None,
             {
@@ -319,7 +327,7 @@ def get_eosdash_about(request: Request):  # type: ignore
     Returns:
         About: The About page component.
     """
-    return About()
+    return page_with_base(request, About())
 
 
 @app.get("/eosdash/admin")
@@ -332,7 +340,7 @@ def get_eosdash_admin(request: Request):  # type: ignore
     Returns:
         Admin: The Admin page component.
     """
-    return Admin(*eos_server())
+    return page_with_base(request, Admin(*eos_server()))
 
 
 @app.post("/eosdash/admin")
@@ -373,7 +381,7 @@ def get_eosdash_configuration(request: Request, data: dict):  # type: ignore
     Returns:
         Configuration: The Configuration page component.
     """
-    return Configuration(*eos_server(), data)
+    return page_with_base(request, Configuration(*eos_server(), data))
 
 
 @app.put("/eosdash/configuration")
@@ -490,7 +498,7 @@ def get_eosdash_plan(request: Request, data: dict):  # type: ignore
     Returns:
         Plan: The Plan page component.
     """
-    return Plan(*eos_server(), data)
+    return page_with_base(request, Plan(*eos_server(), data))
 
 
 @app.post("/eosdash/plan")
@@ -518,7 +526,7 @@ def get_eosdash_prediction(request: Request, data: dict):  # type: ignore
     Returns:
         Prediction: The Prediction page component.
     """
-    return Prediction(*eos_server(), data)
+    return page_with_base(request, Prediction(*eos_server(), data))
 
 
 @app.get("/eosdash/health")
