@@ -7,7 +7,7 @@ from pathlib import Path
 import psutil
 import requests
 import uvicorn
-from fasthtml.common import Base, FileResponse, JSONResponse, Link, NotStr, Script
+from fasthtml.common import FileResponse, JSONResponse, NotStr, Script
 from loguru import logger
 from monsterui.core import FastHTML, headers_theme, scrollspy_style
 from starlette.middleware import Middleware
@@ -197,9 +197,7 @@ if not favicon_filepath.exists():
 
 # Keep MonsterUI's frontend dependencies local so EOSdash also works offline and
 # when Home Assistant Ingress rewrites the application root.
-vendor_assets = "eosdash/assets/vendor"
 hdrs = (
-    Base(id="eosdash-document-base", href="/"),
     Script(
         NotStr(
             r"""
@@ -207,29 +205,27 @@ hdrs = (
     const match = window.location.pathname.match(
         /^(.*\/api\/hassio_ingress\/[^/]+)(?:\/|$)/
     );
-    const base = document.getElementById("eosdash-document-base");
-    base.href = match ? `${match[1]}/` : "/";
+    const root = match ? `${match[1]}/` : "/";
+    const assets = `${root}eosdash/assets/vendor/`;
+    document.write(`<base href="${root}">`);
+    document.write(
+        `<link rel="stylesheet" href="${assets}franken-core-2.0.0.min.css">`
+    );
+    document.write(
+        `<script type="module" src="${assets}franken-core-2.0.0.iife.js"><\/script>`
+    );
+    document.write(`<script src="${assets}tailwind-3.4.17.js"><\/script>`);
+    document.write(
+        `<script type="module" src="${assets}franken-icon-2.0.0.iife.js"><\/script>`
+    );
 })();
 """
         )
     ),
     *BokehJS,
-    Link(
-        rel="stylesheet",
-        href=f"{vendor_assets}/franken-core-2.0.0.min.css",
-    ),
-    Script(
-        src=f"{vendor_assets}/franken-core-2.0.0.iife.js",
-        type="module",
-    ),
-    Script(src=f"{vendor_assets}/tailwind-3.4.17.js"),
     Script("tailwind.config = { darkMode: 'selector' };"),
     headers_theme("green", mode="auto"),
     scrollspy_style,
-    Script(
-        src=f"{vendor_assets}/franken-icon-2.0.0.iife.js",
-        type="module",
-    ),
     EOSDASH_STYLES,
     EOSDASH_SCRIPT,
 )
