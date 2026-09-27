@@ -183,6 +183,7 @@ class TestEOSDash:
         )
         assert "document.write" in asset_loader.text
         assert "hassio_ingress" in asset_loader.text
+        assert "?v=${encodeURIComponent(version)}" in asset_loader.text
 
     def test_page_contains_browser_managed_ingress_base(self, server_setup_for_class):
         """The browser derives the private Home Assistant ingress prefix from its URL."""

@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 import traceback
@@ -220,31 +221,36 @@ if not favicon_filepath.exists():
 
 # Keep MonsterUI's frontend dependencies local so EOSdash also works offline and
 # when Home Assistant Ingress rewrites the application root.
-hdrs = (
-    Script(
-        NotStr(
-            r"""
+asset_version = json.dumps(os.getenv("EOS_BUILD_VERSION") or __version__)
+asset_loader_script = (
+    r"""
 (() => {
     const match = window.location.pathname.match(
         /^(.*\/api\/hassio_ingress\/[^/]+)(?:\/|$)/
     );
     const root = match ? `${match[1]}/` : "/";
     const assets = `${root}eosdash/assets/vendor/`;
+    const version = __EOS_ASSET_VERSION__;
+    const assetUrl = (name) => `${assets}${name}?v=${encodeURIComponent(version)}`;
     document.write(`<base href="${root}">`);
     document.write(
-        `<link rel="stylesheet" href="${assets}franken-core-2.0.0.min.css">`
+        `<link rel="stylesheet" href="${assetUrl("franken-core-2.0.0.min.css")}">`
     );
     document.write(
-        `<script type="module" src="${assets}franken-core-2.0.0.iife.js"><\/script>`
+        `<script type="module" src="${assetUrl("franken-core-2.0.0.iife.js")}"><\/script>`
     );
-    document.write(`<script src="${assets}tailwind-3.4.17.js"><\/script>`);
     document.write(
-        `<script type="module" src="${assets}franken-icon-2.0.0.iife.js"><\/script>`
+        `<script src="${assetUrl("tailwind-3.4.17.js")}"><\/script>`
+    );
+    document.write(
+        `<script type="module" src="${assetUrl("franken-icon-2.0.0.iife.js")}"><\/script>`
     );
 })();
 """
-        )
-    ),
+).replace("__EOS_ASSET_VERSION__", asset_version)
+
+hdrs = (
+    Script(NotStr(asset_loader_script)),
     *BokehJS,
     Script("tailwind.config = { darkMode: 'selector' };"),
     headers_theme("green", mode="auto"),
