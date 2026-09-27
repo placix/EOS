@@ -14,6 +14,7 @@ from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.staticfiles import StaticFiles
+from starlette.types import Scope
 
 from akkudoktoreos.core.coreabc import get_config
 from akkudoktoreos.core.logabc import LOGGING_LEVELS
@@ -46,6 +47,28 @@ from akkudoktoreos.utils.stringutil import str2bool
 # Config uses sysv args for initialisation
 # sysv host and port is set for EOSdash but expected to be set for EOS
 config_eos = get_config(init=True)
+
+
+ASSET_MEDIA_TYPES = {
+    ".css": "text/css",
+    ".ico": "image/x-icon",
+    ".js": "text/javascript",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
+}
+
+
+class EOSDashStaticFiles(StaticFiles):
+    """Serve dashboard assets with stable MIME types in minimal containers."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        media_type = ASSET_MEDIA_TYPES.get(Path(path).suffix.lower())
+        if media_type is not None:
+            response.headers["content-type"] = media_type
+        return response
 
 
 # ------------------------------------
@@ -240,7 +263,7 @@ app: FastHTML = FastHTML(
 )
 app.mount(
     "/eosdash/assets",
-    StaticFiles(directory=Path(__file__).parent / "dash" / "assets"),
+    EOSDashStaticFiles(directory=Path(__file__).parent / "dash" / "assets"),
     name="eosdash-assets",
 )
 

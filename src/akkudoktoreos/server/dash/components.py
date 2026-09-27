@@ -1077,7 +1077,6 @@ def DashboardFooter(*c: Any, path: str) -> Div:
         hx_trigger="every 5s",
         hx_target="#footer-content",
         hx_swap="innerHTML",
-        hx_include=HTMX_INCLUDE,
         cls="eos-footer",
     )
 
@@ -1126,7 +1125,6 @@ def DashboardTabs(dashboard_items: dict[str, str]) -> Div:
                 hx_target="#page-content",
                 hx_swap="innerHTML",
                 hx_vals='js:{ "dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") }',
-                hx_include=HTMX_INCLUDE,
                 data_page_title=menu,
                 cls="uk-active" if index == 0 else None,
             )

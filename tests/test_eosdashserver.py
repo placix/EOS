@@ -213,17 +213,28 @@ class TestEOSDash:
         response.raise_for_status()
         assert BeautifulSoup(response.text, "html.parser").find("base") is None
 
-    def test_local_stylesheet_is_served(self, server_setup_for_class):
-        """The bundled MonsterUI stylesheet is available from the mounted asset route."""
+    @pytest.mark.parametrize(
+        "asset,content_type,min_size",
+        [
+            ("franken-core-2.0.0.min.css", "text/css", 100_000),
+            ("franken-core-2.0.0.iife.js", "text/javascript", 10_000),
+            ("franken-icon-2.0.0.iife.js", "text/javascript", 10_000),
+            ("tailwind-3.4.17.js", "text/javascript", 100_000),
+        ],
+    )
+    def test_local_frontend_assets_are_served_with_browser_safe_mime_types(
+        self, server_setup_for_class, asset, content_type, min_size
+    ):
+        """Bundled frontend assets use explicit MIME types accepted with nosniff."""
         base = server_setup_for_class["eosdash_server"]
 
         response = requests.get(
-            f"{base}/eosdash/assets/vendor/franken-core-2.0.0.min.css", timeout=10
+            f"{base}/eosdash/assets/vendor/{asset}", timeout=10
         )
 
         response.raise_for_status()
-        assert response.headers["content-type"].startswith("text/css")
-        assert len(response.content) > 100_000
+        assert response.headers["content-type"].startswith(content_type)
+        assert len(response.content) > min_size
 
     def test_ingress_safe_links(self, server_setup_for_class, monkeypatch, tmp_path):
         base = server_setup_for_class["eosdash_server"]
