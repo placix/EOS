@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import sys
 import traceback
@@ -8,7 +7,7 @@ from pathlib import Path
 import psutil
 import requests
 import uvicorn
-from fasthtml.common import FileResponse, JSONResponse, NotStr, Script
+from fasthtml.common import FileResponse, JSONResponse, NotStr, Script, Style
 from loguru import logger
 from monsterui.core import FastHTML, headers_theme, scrollspy_style
 from starlette.middleware import Middleware
@@ -219,38 +218,40 @@ if not favicon_filepath.exists():
     raise ValueError(f"Does not exist {favicon_filepath}")
 
 
-# Keep MonsterUI's frontend dependencies local so EOSdash also works offline and
-# when Home Assistant Ingress rewrites the application root.
-asset_version = json.dumps(os.getenv("EOS_BUILD_VERSION") or __version__)
-asset_loader_script = (
-    r"""
+# Keep MonsterUI's frontend dependencies local and inline the critical CSS/JS.
+# Some Home Assistant Supervisor versions replace static asset MIME types while
+# proxying through Ingress, even when EOSdash sends explicit Content-Type headers.
+vendor_asset_dir = Path(__file__).parent / "dash" / "assets" / "vendor"
+
+
+def inline_script_asset(name: str, *, module: bool = False) -> Script:
+    """Load a packaged JavaScript asset into an inline script element."""
+    source = (vendor_asset_dir / name).read_text(encoding="utf-8")
+    source = source.replace("</script", r"<\/script")
+    return Script(NotStr(source), type="module" if module else None, id=f"eosdash-{name}")
+
+
+ingress_base_script = r"""
 (() => {
     const match = window.location.pathname.match(
         /^(.*\/api\/hassio_ingress\/[^/]+)(?:\/|$)/
     );
     const root = match ? `${match[1]}/` : "/";
-    const assets = `${root}eosdash/assets/vendor/`;
-    const version = __EOS_ASSET_VERSION__;
-    const assetUrl = (name) => `${assets}${name}?v=${encodeURIComponent(version)}`;
-    document.write(`<base href="${root}">`);
-    document.write(
-        `<link rel="stylesheet" href="${assetUrl("franken-core-2.0.0.min.css")}">`
-    );
-    document.write(
-        `<script type="module" src="${assetUrl("franken-core-2.0.0.iife.js")}"><\/script>`
-    );
-    document.write(
-        `<script src="${assetUrl("tailwind-3.4.17.js")}"><\/script>`
-    );
-    document.write(
-        `<script type="module" src="${assetUrl("franken-icon-2.0.0.iife.js")}"><\/script>`
-    );
+    const base = document.createElement("base");
+    base.href = root;
+    document.head.append(base);
 })();
 """
-).replace("__EOS_ASSET_VERSION__", asset_version)
 
 hdrs = (
-    Script(NotStr(asset_loader_script)),
+    Script(NotStr(ingress_base_script), id="eosdash-ingress-base"),
+    Style(
+        NotStr((vendor_asset_dir / "franken-core-2.0.0.min.css").read_text(encoding="utf-8")),
+        id="eosdash-franken-core-css",
+    ),
+    inline_script_asset("franken-core-2.0.0.iife.js", module=True),
+    inline_script_asset("tailwind-3.4.17.js"),
+    inline_script_asset("franken-icon-2.0.0.iife.js", module=True),
     *BokehJS,
     Script("tailwind.config = { darkMode: 'selector' };"),
     headers_theme("green", mode="auto"),

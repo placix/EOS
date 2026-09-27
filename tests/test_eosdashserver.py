@@ -176,14 +176,10 @@ class TestEOSDash:
 
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        asset_loader = next(
-            script
-            for script in soup.find_all("script")
-            if "franken-core-2.0.0.min.css" in script.text
-        )
-        assert "document.write" in asset_loader.text
-        assert "hassio_ingress" in asset_loader.text
-        assert "?v=${encodeURIComponent(version)}" in asset_loader.text
+        assert len(soup.select_one("style#eosdash-franken-core-css").text) > 100_000
+        assert len(soup.select_one('script[id="eosdash-tailwind-3.4.17.js"]').text) > 100_000
+        assert soup.select_one('script[src*="franken-core"]') is None
+        assert soup.select_one('link[href*="franken-core"]') is None
 
     def test_page_contains_browser_managed_ingress_base(self, server_setup_for_class):
         """The browser derives the private Home Assistant ingress prefix from its URL."""
@@ -193,13 +189,9 @@ class TestEOSDash:
 
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        asset_loader = next(
-            script
-            for script in soup.find_all("script")
-            if "franken-core-2.0.0.min.css" in script.text
-        )
-        assert "<base href=" in asset_loader.text
-        assert "hassio_ingress" in asset_loader.text
+        base_loader = soup.select_one("script#eosdash-ingress-base")
+        assert "document.createElement" in base_loader.text
+        assert "hassio_ingress" in base_loader.text
 
     def test_htmx_fragment_does_not_include_document_base(self, server_setup_for_class):
         """HTMX swaps must not insert a base element into the page body."""
