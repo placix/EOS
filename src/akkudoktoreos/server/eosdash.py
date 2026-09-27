@@ -3,12 +3,11 @@ import os
 import sys
 import traceback
 from pathlib import Path
-from typing import Any
 
 import psutil
 import requests
 import uvicorn
-from fasthtml.common import Base, FileResponse, JSONResponse, Link, Script
+from fasthtml.common import Base, FileResponse, JSONResponse, Link, NotStr, Script
 from loguru import logger
 from monsterui.core import FastHTML, headers_theme, scrollspy_style
 from starlette.middleware import Middleware
@@ -200,6 +199,20 @@ if not favicon_filepath.exists():
 # when Home Assistant Ingress rewrites the application root.
 vendor_assets = "eosdash/assets/vendor"
 hdrs = (
+    Base(id="eosdash-document-base", href="/"),
+    Script(
+        NotStr(
+            r"""
+(() => {
+    const match = window.location.pathname.match(
+        /^(.*\/api\/hassio_ingress\/[^/]+)(?:\/|$)/
+    );
+    const base = document.getElementById("eosdash-document-base");
+    base.href = match ? `${match[1]}/` : "/";
+})();
+"""
+        )
+    ),
     *BokehJS,
     Link(
         rel="stylesheet",
@@ -234,15 +247,6 @@ app.mount(
     StaticFiles(directory=Path(__file__).parent / "dash" / "assets"),
     name="eosdash-assets",
 )
-
-
-def page_with_base(request: Request, content: Any) -> Any:
-    """Add a stable document base to full pages while leaving HTMX fragments untouched."""
-    if request.headers.get("HX-Request", "").lower() == "true":
-        return content
-
-    root_path = str(request.scope.get("root_path", "")).rstrip("/")
-    return Base(href=f"{root_path}/"), content
 
 
 def eos_server() -> tuple[str, int]:
@@ -286,21 +290,18 @@ def get_eosdash(request: Request):  # type: ignore
     Returns:
         Page: The main dashboard page with navigation links and footer.
     """
-    return page_with_base(
-        request,
-        Page(
-            None,
-            {
-                "Plan": "/eosdash/plan",
-                "Prediction": "/eosdash/prediction",
-                "Config": "/eosdash/configuration",
-                "Admin": "/eosdash/admin",
-                "About": "/eosdash/about",
-            },
-            About(),
-            Footer(*eos_server(), request.url.hostname or "localhost"),
-            "/eosdash/footer",
-        ),
+    return Page(
+        None,
+        {
+            "Plan": "/eosdash/plan",
+            "Prediction": "/eosdash/prediction",
+            "Config": "/eosdash/configuration",
+            "Admin": "/eosdash/admin",
+            "About": "/eosdash/about",
+        },
+        About(),
+        Footer(*eos_server(), request.url.hostname or "localhost"),
+        "/eosdash/footer",
     )
 
 
@@ -327,7 +328,7 @@ def get_eosdash_about(request: Request):  # type: ignore
     Returns:
         About: The About page component.
     """
-    return page_with_base(request, About())
+    return About()
 
 
 @app.get("/eosdash/admin")
@@ -340,7 +341,7 @@ def get_eosdash_admin(request: Request):  # type: ignore
     Returns:
         Admin: The Admin page component.
     """
-    return page_with_base(request, Admin(*eos_server()))
+    return Admin(*eos_server())
 
 
 @app.post("/eosdash/admin")
@@ -381,7 +382,7 @@ def get_eosdash_configuration(request: Request, data: dict):  # type: ignore
     Returns:
         Configuration: The Configuration page component.
     """
-    return page_with_base(request, Configuration(*eos_server(), data))
+    return Configuration(*eos_server(), data)
 
 
 @app.put("/eosdash/configuration")
@@ -498,7 +499,7 @@ def get_eosdash_plan(request: Request, data: dict):  # type: ignore
     Returns:
         Plan: The Plan page component.
     """
-    return page_with_base(request, Plan(*eos_server(), data))
+    return Plan(*eos_server(), data)
 
 
 @app.post("/eosdash/plan")
@@ -526,7 +527,7 @@ def get_eosdash_prediction(request: Request, data: dict):  # type: ignore
     Returns:
         Prediction: The Prediction page component.
     """
-    return page_with_base(request, Prediction(*eos_server(), data))
+    return Prediction(*eos_server(), data)
 
 
 @app.get("/eosdash/health")

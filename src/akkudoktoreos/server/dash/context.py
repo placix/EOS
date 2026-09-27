@@ -13,7 +13,7 @@ HASSIO_TOKEN = os.environ.get("HASSIO_TOKEN")
 
 # Compute global root path at startup
 # Will be replaced on first request if Ingress is active
-ROOT_PATH = "/"
+ROOT_PATH = ""
 
 # EOSdash path prefix
 EOSDASH_ROOT = "eosdash/"
@@ -91,7 +91,8 @@ class IngressMiddleware(BaseHTTPMiddleware):
         if ingress_path:
             ROOT_PATH = ingress_path
             request.scope["root_path"] = ingress_path
-        # Otherwise, root_path remains empty (normal operation)
+        else:
+            ROOT_PATH = ""
 
         response = await call_next(request)
 
@@ -115,13 +116,10 @@ def request_url_for(path: str, root_path: Optional[str] = None) -> str:
     if root_path is None:
         root_path = ROOT_PATH
 
-    # Normalize root path
-    root_path = root_path.rstrip("/") + "/"
-
     # Normalize path
-    if path.startswith(root_path):
+    if root_path and path.startswith(root_path.rstrip("/") + "/"):
         # Strip root_path prefix
-        path = path[len(root_path) :]
+        path = path[len(root_path.rstrip("/") + "/") :]
 
     # Remove leading / if any
     path = path.lstrip("/")
@@ -130,8 +128,13 @@ def request_url_for(path: str, root_path: Optional[str] = None) -> str:
     if path.startswith(EOSDASH_ROOT):
         path = path[len(EOSDASH_ROOT) :]
 
-    # Build final URL
-    result = root_path + EOSDASH_ROOT + path.lstrip("/")
+    # Relative URLs resolve against EOSdash's browser-managed <base>. This also
+    # works with current Home Assistant versions, which no longer expose their
+    # private ingress token to the add-on as a request header.
+    if root_path:
+        result = root_path.rstrip("/") + "/" + EOSDASH_ROOT + path.lstrip("/")
+    else:
+        result = EOSDASH_ROOT + path.lstrip("/")
 
     # Normalize accidental double slashes (except leading)
     while "//" in result[1:]:

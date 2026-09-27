@@ -25,7 +25,7 @@ ALLOWED_PREFIXES = [
 
 # Head assets are intentionally relative: unlike links rendered per request,
 # they are created when the app starts, before an Ingress prefix is known.
-INGRESS_SAFE_RELATIVE_PREFIXES = ["eosdash/assets/"]
+INGRESS_SAFE_RELATIVE_PREFIXES = ["eosdash/"]
 
 
 def is_allowed_prefix(url: str) -> bool:
@@ -181,20 +181,16 @@ class TestEOSDash:
             'link[href="eosdash/assets/vendor/franken-core-2.0.0.min.css"]'
         ) is not None
 
-    def test_ingress_page_uses_ingress_asset_base(self, server_setup_for_class):
-        """Ingress page refreshes retain the Home Assistant proxy prefix for assets."""
+    def test_page_contains_browser_managed_ingress_base(self, server_setup_for_class):
+        """The browser derives the private Home Assistant ingress prefix from its URL."""
         base = server_setup_for_class["eosdash_server"]
-        ingress_path = "/api/hassio_ingress/TOKEN"
 
-        response = requests.get(
-            f"{base}/eosdash/configuration",
-            headers={"X-Ingress-Path": ingress_path},
-            timeout=10,
-        )
+        response = requests.get(f"{base}/eosdash/configuration", timeout=10)
 
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        assert soup.select_one(f'base[href="{ingress_path}/"]') is not None
+        assert soup.select_one('base#eosdash-document-base[href="/"]') is not None
+        assert "hassio_ingress" in response.text
 
     def test_htmx_fragment_does_not_include_document_base(self, server_setup_for_class):
         """HTMX swaps must not insert a base element into the page body."""
@@ -285,6 +281,7 @@ class TestEOSDash:
                 "assets/logo.png",
                 "/api/hassio_ingress/TOKEN/eosdash/assets/logo.png",
             ),
+            ("", "/eosdash/footer", "eosdash/footer"),
         ],
     )
     def test_request_url_for(self, root_path, path, expected):
