@@ -1,14 +1,13 @@
 import re
 import time
 from http import HTTPStatus
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 import requests
 from bs4 import BeautifulSoup
 
-from akkudoktoreos.server.dash.context import EOSDASH_ROOT, ROOT_PATH, request_url_for
+from akkudoktoreos.server.dash.context import request_url_for
 
 # -----------------------------------------------------
 # URL filtering logic
@@ -16,10 +15,17 @@ from akkudoktoreos.server.dash.context import EOSDASH_ROOT, ROOT_PATH, request_u
 
 ALLOWED_PREFIXES = [
     "/api/hassio_ingress/",
-    "http://", "https://",            # external URLs
-    "mailto:", "tel:",                # contact URLs
-    "#",                              # anchor links
+    "http://",
+    "https://",  # external URLs
+    "mailto:",
+    "tel:",  # contact URLs
+    "data:",  # inline images and other embedded assets
+    "#",  # anchor links
 ]
+
+# Head assets are intentionally relative: unlike links rendered per request,
+# they are created when the app starts, before an Ingress prefix is known.
+INGRESS_SAFE_RELATIVE_PREFIXES = ["eosdash/assets/"]
 
 
 def is_allowed_prefix(url: str) -> bool:
@@ -34,6 +40,7 @@ WS_REGEX = re.compile(r'new\s+WebSocket\s*\(\s*[\'"]([^\'"]*)[\'"]')
 # -----------------------------------------------------
 # Core HTML parser
 # -----------------------------------------------------
+
 
 def scan_html_for_link_issues(html: str):
     soup = BeautifulSoup(html, "html.parser")
@@ -66,7 +73,12 @@ def scan_html_for_link_issues(html: str):
 
     # (3) mixed usage check: both absolute + relative appear
     used_absolute = any(u.startswith("/") for u in all_urls if not is_allowed_prefix(u))
-    used_relative = any(not u.startswith("/") for u in all_urls if not is_allowed_prefix(u))
+    used_relative = any(
+        not u.startswith("/")
+        and not any(u.startswith(prefix) for prefix in INGRESS_SAFE_RELATIVE_PREFIXES)
+        for u in all_urls
+        if not is_allowed_prefix(u)
+    )
 
     mixed_usage = used_absolute and used_relative
 
@@ -84,6 +96,9 @@ def collect_testable_routes(app):
     for r in app.routes:
         if not hasattr(r, "path"):
             continue
+        methods = getattr(r, "methods", None)
+        if methods is None or "GET" not in methods:
+            continue
         path = r.path
 
         # skip API-style or binary endpoints:
@@ -97,7 +112,6 @@ def collect_testable_routes(app):
 
 
 class TestEOSDash:
-
     def _assert_server_alive(self, base_url: str, timeout: int):
         """Poll the /eosdash/health endpoint until it's alive or timeout reached."""
         startup = False
@@ -131,6 +145,18 @@ class TestEOSDash:
         timeout = server_setup_for_class["timeout"]
         self._assert_server_alive(server, timeout)
 
+    def test_configuration_search_value_is_preserved(self, server_setup_for_class):
+        """Configuration search survives its HTMX round trip."""
+        base = server_setup_for_class["eosdash_server"]
+
+        response = requests.get(
+            f"{base}/eosdash/configuration", params={"search": "Latitude"}, timeout=10
+        )
+
+        response.raise_for_status()
+        assert 'id="config-search"' in response.text
+        assert 'value="Latitude"' in response.text
+
     def test_ingress_safe_links(self, server_setup_for_class, monkeypatch, tmp_path):
         base = server_setup_for_class["eosdash_server"]
 
@@ -147,21 +173,25 @@ class TestEOSDash:
                 resp = requests.get(url)
                 resp.raise_for_status()
 
-                abs_issues, rel_up_issues, mixed_usage, ws_issues = scan_html_for_link_issues(resp.text)
+                abs_issues, rel_up_issues, mixed_usage, ws_issues = scan_html_for_link_issues(
+                    resp.text
+                )
 
-                #assert not abs_issues, (
+                # assert not abs_issues, (
                 #    f"Forbidden absolute paths detected on {path}:\n" +
                 #    "\n".join(abs_issues)
-                #)
+                # )
 
                 assert not rel_up_issues, (
-                    f"Relative paths navigating up (`../`) detected on {path}:\n" +
-                    "\n".join(rel_up_issues)
+                    f"Relative paths navigating up (`../`) detected on {path}:\n"
+                    + "\n".join(rel_up_issues)
                 )
 
                 assert not mixed_usage, f"Mixed absolute/relative linking detected on page {path}"
 
-                assert not ws_issues, f"Forbidden WebSocket paths detected on {path}:\n" + "\n".join(ws_issues)
+                assert not ws_issues, (
+                    f"Forbidden WebSocket paths detected on {path}:\n" + "\n".join(ws_issues)
+                )
 
     @pytest.mark.parametrize(
         "root_path,path,expected",
@@ -170,11 +200,27 @@ class TestEOSDash:
             ("/", "eosdash/footer", "/eosdash/footer"),
             ("/", "footer", "/eosdash/footer"),
             ("/", "eosdash/assets/logo.png", "/eosdash/assets/logo.png"),
-            ("/api/hassio_ingress/TOKEN/", "/api/hassio_ingress/TOKEN/eosdash/footer", "/api/hassio_ingress/TOKEN/eosdash/footer"),
-            ("/api/hassio_ingress/TOKEN/", "/eosdash/footer", "/api/hassio_ingress/TOKEN/eosdash/footer"),
-            ("/api/hassio_ingress/TOKEN/", "eosdash/footer", "/api/hassio_ingress/TOKEN/eosdash/footer"),
+            (
+                "/api/hassio_ingress/TOKEN/",
+                "/api/hassio_ingress/TOKEN/eosdash/footer",
+                "/api/hassio_ingress/TOKEN/eosdash/footer",
+            ),
+            (
+                "/api/hassio_ingress/TOKEN/",
+                "/eosdash/footer",
+                "/api/hassio_ingress/TOKEN/eosdash/footer",
+            ),
+            (
+                "/api/hassio_ingress/TOKEN/",
+                "eosdash/footer",
+                "/api/hassio_ingress/TOKEN/eosdash/footer",
+            ),
             ("/api/hassio_ingress/TOKEN/", "footer", "/api/hassio_ingress/TOKEN/eosdash/footer"),
-            ("/api/hassio_ingress/TOKEN/", "assets/logo.png", "/api/hassio_ingress/TOKEN/eosdash/assets/logo.png"),
+            (
+                "/api/hassio_ingress/TOKEN/",
+                "assets/logo.png",
+                "/api/hassio_ingress/TOKEN/eosdash/assets/logo.png",
+            ),
         ],
     )
     def test_request_url_for(self, root_path, path, expected):
@@ -186,7 +232,7 @@ class TestEOSDash:
             expected (str): Final produced path.
         """
 
-        result = request_url_for(path, root_path = root_path)
+        result = request_url_for(path, root_path=root_path)
         assert result == expected, (
             f"URL rewriting mismatch. "
             f"root_path={root_path}, path={path}, expected={expected}, got={result}"
@@ -194,7 +240,7 @@ class TestEOSDash:
 
         # Test fallback to global var
         with patch("akkudoktoreos.server.dash.context.ROOT_PATH", root_path):
-            result = request_url_for(path, root_path = None)
+            result = request_url_for(path, root_path=None)
 
         assert result == expected, (
             f"URL rewriting mismatch. "

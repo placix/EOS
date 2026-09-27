@@ -5,12 +5,15 @@ import traceback
 from pathlib import Path
 
 import psutil
+import requests
 import uvicorn
-from fasthtml.common import Base, FileResponse, JSONResponse
+from fasthtml.common import Base, FileResponse, JSONResponse, Link, Script
 from loguru import logger
-from monsterui.core import FastHTML, Theme
+from monsterui.core import FastHTML, headers_theme, scrollspy_style
 from starlette.middleware import Middleware
 from starlette.requests import Request
+from starlette.responses import Response
+from starlette.staticfiles import StaticFiles
 
 from akkudoktoreos.core.coreabc import get_config
 from akkudoktoreos.core.logabc import LOGGING_LEVELS
@@ -27,11 +30,11 @@ from akkudoktoreos.server.dash.components import Page
 from akkudoktoreos.server.dash.configuration import Configuration, config_options
 from akkudoktoreos.server.dash.context import (
     IngressMiddleware,
-    safe_asset_path,
 )
 from akkudoktoreos.server.dash.footer import Footer
 from akkudoktoreos.server.dash.plan import Plan
 from akkudoktoreos.server.dash.prediction import Prediction
+from akkudoktoreos.server.dash.theme import EOSDASH_SCRIPT, EOSDASH_STYLES
 from akkudoktoreos.server.server import (
     drop_root_privileges,
     get_default_host,
@@ -192,11 +195,29 @@ if not favicon_filepath.exists():
     raise ValueError(f"Does not exist {favicon_filepath}")
 
 
-# Add Bokeh headers
-# Get frankenui and tailwind headers via CDN using Theme.green.headers()
+# Keep MonsterUI's frontend dependencies local so EOSdash also works offline and
+# when Home Assistant Ingress rewrites the application root.
+vendor_assets = "eosdash/assets/vendor"
 hdrs = (
     *BokehJS,
-    Theme.green.headers(highlightjs=True),
+    Link(
+        rel="stylesheet",
+        href=f"{vendor_assets}/franken-core-2.0.0.min.css",
+    ),
+    Script(
+        src=f"{vendor_assets}/franken-core-2.0.0.iife.js",
+        type="module",
+    ),
+    Script(src=f"{vendor_assets}/tailwind-3.4.17.js"),
+    Script("tailwind.config = { darkMode: 'selector' };"),
+    headers_theme("green", mode="auto"),
+    scrollspy_style,
+    Script(
+        src=f"{vendor_assets}/franken-icon-2.0.0.iife.js",
+        type="module",
+    ),
+    EOSDASH_STYLES,
+    EOSDASH_SCRIPT,
 )
 
 # The EOSdash application
@@ -206,6 +227,11 @@ app: FastHTML = FastHTML(
     # htmx=True,  # Include HTMX header?
     middleware=[Middleware(IngressMiddleware)],
     secret_key=os.getenv("EOS_SERVER__EOSDASH_SESSKEY"),  # Signing key for sessions
+)
+app.mount(
+    "/eosdash/assets",
+    StaticFiles(directory=Path(__file__).parent / "dash" / "assets"),
+    name="eosdash-assets",
 )
 
 
@@ -337,16 +363,17 @@ def get_eosdash_configuration_options(  # type: ignore
 
 
 @app.get("/eosdash/configuration")
-def get_eosdash_configuration(request: Request):  # type: ignore
+def get_eosdash_configuration(request: Request, data: dict):  # type: ignore
     """Serve the EOSdash Configuration page.
 
     Args:
         request (Request): The incoming FastHTML request.
+        data (dict): Query data used to filter the configuration page.
 
     Returns:
         Configuration: The Configuration page component.
     """
-    return Configuration(*eos_server())
+    return Configuration(*eos_server(), data)
 
 
 @app.put("/eosdash/configuration")
@@ -375,6 +402,81 @@ def post_eosdash_configuration(request: Request, data: dict):  # type: ignore
         Configuration: The Configuration page component with updated configuration.
     """
     return Configuration(*eos_server(), data)
+
+
+@app.get("/eosdash/configuration/file/download")
+def get_eosdash_configuration_file_download(request: Request):  # type: ignore
+    """Proxy EOS.config.json download through EOSdash for ingress-safe access."""
+    server = f"http://{eos_server()[0]}:{eos_server()[1]}"
+    try:
+        result = requests.get(f"{server}/v1/config/file", timeout=10)
+        result.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        detail = result.text
+        return JSONResponse(
+            {"detail": f"Can not download EOS.config.json from {server}: {e}, {detail}"},
+            status_code=result.status_code,
+        )
+    except Exception as e:
+        return JSONResponse(
+            {"detail": f"Can not download EOS.config.json from {server}: {e}"},
+            status_code=400,
+        )
+
+    return Response(
+        content=result.content,
+        media_type=result.headers.get("content-type", "application/json"),
+        headers={"content-disposition": 'attachment; filename="EOS.config.json"'},
+    )
+
+
+@app.post("/eosdash/configuration/file/upload")
+async def post_eosdash_configuration_file_upload(request: Request):  # type: ignore
+    """Proxy EOS.config.json upload through EOSdash for ingress-safe access."""
+    upload_status = None
+    server = f"http://{eos_server()[0]}:{eos_server()[1]}"
+    try:
+        form = await request.form()
+        upload = form.get("file")
+        if upload is None or not hasattr(upload, "read"):
+            raise ValueError("No uploaded configuration file found.")
+        content = await upload.read()
+        filename = getattr(upload, "filename", None) or "EOS.config.json"
+        result = requests.post(
+            f"{server}/v1/config/file",
+            files={"file": (filename, content, "application/json")},
+            timeout=10,
+        )
+        result.raise_for_status()
+        response = result.json()
+        config_file_path = response.get("config_file_path", "EOS.config.json")
+        backup_id = response.get("backup_id")
+        backup_note = f" Backup: `{backup_id}`." if backup_id else ""
+        from akkudoktoreos.server.dash.components import Success
+
+        upload_status = Success(
+            f"Uploaded and replaced '{config_file_path}' on 'EOS server'.{backup_note}"
+        )
+    except requests.exceptions.HTTPError as e:
+        try:
+            detail = result.json().get("detail", result.text)
+        except ValueError:
+            detail = result.text
+        from akkudoktoreos.server.dash.components import Error
+
+        upload_status = Error(f"Can not upload EOS.config.json to {server}: {e}, {detail}")
+    except Exception as e:
+        from akkudoktoreos.server.dash.components import Error
+
+        upload_status = Error(f"Can not upload EOS.config.json to {server}: {e}")
+
+    return Configuration(
+        *eos_server(),
+        {
+            "action": "upload_file_result",
+            "config_file_status": upload_status,
+        },
+    )
 
 
 @app.get("/eosdash/plan")
@@ -436,32 +538,6 @@ def get_eosdash_health(request: Request):  # type: ignore
             "version": __version__,
         }
     )
-
-
-@app.get("/eosdash/assets/{filepath:path}")
-def get_eosdash_assets(request: Request, filepath: str):  # type: ignore
-    """Serve static assets for EOSdash safely.
-
-    Args:
-        request (Request): The incoming FastHTML request.
-        filepath (str): Relative path of the asset under dash/assets/.
-
-    Returns:
-        FileResponse: The requested asset file if it exists.
-
-    Raises:
-        404: If the file does not exist.
-        403: If the file path is forbidden (directory traversal attempt).
-    """
-    try:
-        asset_filepath = safe_asset_path(filepath)
-    except ValueError:
-        return {"error": "Forbidden"}, 403
-
-    if not asset_filepath.exists() or not asset_filepath.is_file():
-        return {"error": "File not found"}, 404
-
-    return FileResponse(path=asset_filepath)
 
 
 # ----------------------

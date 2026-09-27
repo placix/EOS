@@ -423,7 +423,7 @@ def SolutionCard(solution: OptimizationSolution, config: SettingsEOS, data: Opti
                         + '"'
                         + f"{renderer}"
                         + '", '
-                        + '"dark": window.matchMedia("(prefers-color-scheme: dark)").matches '
+                        + '"dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") '
                         + "}",
                         lbl_cls=f"text-{solution_color[renderer]}",
                     )
@@ -450,7 +450,7 @@ def SolutionCard(solution: OptimizationSolution, config: SettingsEOS, data: Opti
                         + '"'
                         + f"{renderer}"
                         + '", '
-                        + '"dark": window.matchMedia("(prefers-color-scheme: dark)").matches '
+                        + '"dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") '
                         + "}",
                         lbl_cls=f"text-{solution_color[renderer]}",
                     )
@@ -477,7 +477,7 @@ def SolutionCard(solution: OptimizationSolution, config: SettingsEOS, data: Opti
                         + '"'
                         + f"{renderer}"
                         + '", '
-                        + '"dark": window.matchMedia("(prefers-color-scheme: dark)").matches '
+                        + '"dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") '
                         + "}",
                         lbl_cls=f"text-{solution_color[renderer]}",
                     )

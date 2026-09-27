@@ -1,18 +1,28 @@
 import enum
 import json
 from collections.abc import Sequence
+from html import escape
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import requests
-from fasthtml.common import Select
+from fasthtml.common import A, Button, Li, Select, Ul
 from loguru import logger
 from monsterui.franken import (
+    ButtonT,
     Card,
-    CardTitle,
     Div,
+    Form,
     Grid,
+    H3,
     LabelCheckboxX,
+    Modal,
+    ModalCloseButton,
+    ModalTitle,
+    NotStr,
     Option,
+    P,
+    TabContainer,
+    UkIcon,
 )
 from pydantic.fields import ComputedFieldInfo, FieldInfo
 from pydantic_core import PydanticUndefined
@@ -23,7 +33,9 @@ from akkudoktoreos.server.dash.components import (
     HTMX_INCLUDE,
     ConfigCard,
     ConfigSection,
+    Error,
     Input,
+    Success,
 )
 from akkudoktoreos.server.dash.context import request_url_for
 from akkudoktoreos.server.dash.eosstatus import eos_pvlib_cec_names, eos_server_address
@@ -474,6 +486,8 @@ def Configuration(
     """
     global config_visible, eos_server_address
     dark = False
+    config_file_status = None
+    server = f"http://{eos_host}:{eos_port}"
 
     # Remember for usage
     eos_server_address = (eos_host, int(eos_port))
@@ -500,7 +514,6 @@ def Configuration(
             error = None
             config = None
             try:
-                server = f"http://{eos_host}:{eos_port}"
                 path = key.replace(".", "/")
                 response = requests.put(f"{server}/v1/config/{path}", json=value, timeout=10)
                 response.raise_for_status()
@@ -525,6 +538,32 @@ def Configuration(
                 "value": value_json_str,
                 "open": True,
             }
+        elif data["action"] == "save_raw_config":
+            raw_config = data.get("raw_config", "")
+            try:
+                parsed_config = json.loads(raw_config)
+                response = requests.post(
+                    f"{server}/v1/config/file",
+                    json=parsed_config,
+                    timeout=10,
+                )
+                response.raise_for_status()
+                config_file_path = response.json().get("config_file_path", "EOS.config.json")
+                backup_id = response.json().get("backup_id")
+                backup_note = f" Backup: `{backup_id}`." if backup_id else ""
+                config_file_status = Success(
+                    f"Saved configuration file '{config_file_path}'. Settings now show the saved values.{backup_note}"
+                )
+            except requests.exceptions.HTTPError as err:
+                try:
+                    detail = response.json().get("detail", response.text)
+                except ValueError:
+                    detail = response.text
+                config_file_status = Error(f"Can not save configuration file: {err}, {detail}")
+            except Exception as err:
+                config_file_status = Error(f"Can not save configuration file: {err}")
+        elif data["action"] == "upload_file_result":
+            config_file_status = data.get("config_file_status")
 
     # (Re-)read configuration details to be shure we display actual data
     config = get_config(eos_host, eos_port)
@@ -533,24 +572,26 @@ def Configuration(
     config_details = create_config_details(ConfigEOS, config)
 
     # Configuration search
-    search_value = (data.get("search", "") if data else "").strip().lower()
+    search_value = (data.get("search", "") if data else "").strip()
+    search_query = search_value.lower()
 
-    SearchBar = Card(
+    SearchBar = Div(
         Input(
             placeholder="Search configuration… (name, description, type)",
+            id="config-search",
             name="search",
             value=search_value,
             hx_get=request_url_for("/eosdash/configuration"),
-            hx_push_url="true",
             hx_trigger="keyup changed delay:250ms",
             hx_target="#page-content",
             hx_swap="innerHTML",
-            hx_vals='js:{ "dark": window.matchMedia("(prefers-color-scheme: dark)").matches }',
+            hx_vals='js:{ "dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") }',
             cls="w-full border rounded px-3 py-2",
-        )
+        ),
+        cls="rounded-lg border bg-background p-3 shadow-sm",
     )
 
-    ConfigMenu = Card(
+    ConfigMenu = Div(
         # CheckboxGroup to toggle config data visibility
         Grid(
             *[
@@ -567,7 +608,7 @@ def Configuration(
                     + '"'
                     + f"{renderer}"
                     + '", '
-                    + '"dark": window.matchMedia("(prefers-color-scheme: dark)").matches '
+                    + '"dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") '
                     + "}",
                     hx_include=HTMX_INCLUDE,
                     # lbl_cls=f"text-{solution_color[renderer]}",
@@ -576,7 +617,56 @@ def Configuration(
             ],
             cols=4,
         ),
-        header=CardTitle("Choose What's Shown"),
+        cls="rounded-lg border bg-background p-3 shadow-sm",
+    )
+
+    raw_config_text = json.dumps(config, indent=2, ensure_ascii=False)
+    RawConfigEditor = Card(
+        Div(
+            Div(
+                UkIcon("file-json"),
+                H3("EOS.config.json", cls="text-base font-semibold"),
+                cls="flex items-center gap-2",
+            ),
+            config_file_status,
+            Form(
+                Input(
+                    value="save_raw_config",
+                    type="hidden",
+                    id="action",
+                    name="action",
+                ),
+                NotStr(
+                    '<textarea id="raw-config" name="raw_config" spellcheck="false" '
+                    'data-json-editor="true" aria-label="Complete EOS configuration as JSON" '
+                    'class="uk-textarea eos-json-editor w-full">'
+                    f"{escape(raw_config_text)}"
+                    "</textarea>"
+                ),
+                P(
+                    "",
+                    hidden=True,
+                    data_json_error=True,
+                    cls="text-sm text-red-700 dark:text-red-300",
+                    role="alert",
+                ),
+                Div(
+                    Button(
+                        UkIcon("save"),
+                        "Save JSON",
+                        type="submit",
+                        cls=f"uk-btn {ButtonT.primary}",
+                    ),
+                    cls="flex justify-end",
+                ),
+                hx_post=request_url_for("/eosdash/configuration"),
+                hx_target="#page-content",
+                hx_swap="innerHTML",
+                cls="space-y-3",
+            ),
+            cls="space-y-3",
+        ),
+        cls="w-full",
     )
 
     # find some special configuration values
@@ -649,7 +739,7 @@ def Configuration(
         ):
             continue
 
-        if not config_matches_search(config, search_value):
+        if not config_matches_search(config, search_query):
             # Search value given but does not match
             continue
 
@@ -701,7 +791,7 @@ def Configuration(
         # dict, since that dict only holds top-level model fields. ConfigItemsCard
         # resolves per-item sub-fields internally via its own create_config_details
         # call, so we must match against config_update_latest's own keys instead.
-        open_section = bool(search_value)
+        open_section = bool(search_query)
 
         if not open_section:
             open_section = any(
@@ -720,11 +810,83 @@ def Configuration(
 
         section_components.append(ConfigSection(category, *cards, open=open_section))
 
-    return Div(
-        Grid(
-            ConfigMenu,
-            SearchBar,
+    file_actions = Div(
+        A(
+            UkIcon("download"),
+            "Download",
+            href=request_url_for("/eosdash/configuration/file/download"),
+            download="EOS.config.json",
+            cls=f"uk-btn {ButtonT.secondary}",
         ),
+        Button(
+            UkIcon("upload"),
+            "Upload / replace",
+            type="button",
+            cls=f"uk-btn {ButtonT.secondary}",
+            data_uk_toggle="target: #config-upload-modal",
+        ),
+        cls="eos-toolbar",
+    )
+
+    upload_modal = Modal(
+        Form(
+            P(
+                "Choose a JSON file. EOS validates it and creates a backup before replacing "
+                "the active configuration.",
+                cls="text-sm text-muted-foreground",
+            ),
+            Input(
+                type="file",
+                id="config-file-upload",
+                name="file",
+                accept=".json,application/json",
+                required=True,
+                cls="w-full",
+            ),
+            Button("Upload and replace", type="submit", cls=f"uk-btn {ButtonT.primary}"),
+            hx_post=request_url_for("/eosdash/configuration/file/upload"),
+            hx_target="#page-content",
+            hx_swap="innerHTML",
+            hx_encoding="multipart/form-data",
+        ),
+        header=ModalTitle("Replace EOS.config.json"),
+        footer=ModalCloseButton("Cancel", cls=ButtonT.secondary),
+        id="config-upload-modal",
+    )
+
+    settings_view = Div(
+        Grid(ConfigMenu, SearchBar, cols=2),
         *section_components,
+        cls="space-y-4",
+    )
+    view_tabs = TabContainer(
+        Li(A(UkIcon("settings"), "Settings", href="#"), cls="uk-active"),
+        Li(A(UkIcon("file-json"), "JSON", href="#")),
+        alt=True,
+        uk_switcher="connect: #configuration-views; animation: uk-animation-fade",
+        cls="eos-config-tabs",
+    )
+
+    return Div(
+        Div(
+            Div(
+                H3("Configuration", cls="text-xl font-semibold"),
+                P(
+                    "Edit individual settings or work with the complete configuration file.",
+                    cls="text-sm text-muted-foreground",
+                ),
+            ),
+            file_actions,
+            cls="flex items-start justify-between gap-4 flex-wrap",
+        ),
+        config_file_status,
+        view_tabs,
+        Ul(
+            Li(settings_view, cls="uk-active"),
+            Li(RawConfigEditor),
+            id="configuration-views",
+            cls="uk-switcher mt-4",
+        ),
+        upload_modal,
         cls="space-y-4",
     )

@@ -103,10 +103,14 @@ version = { file = "version.txt" }
 
 [tool.setuptools.packages.find]
 where = ["src/"]
-include = ["akkudoktoreos"]
+include = ["akkudoktoreos*"]
 
 [tool.setuptools.package-data]
-akkudoktoreos = ["*.json", "data/*.npz", ]
+akkudoktoreos = [
+    "*.json",
+    "data/*.npz",
+    "server/dash/assets/**/*",
+]
 
 [tool.pyright]
 # used in Pylance extension for language server

@@ -9,6 +9,7 @@ import sys
 import traceback
 from contextlib import asynccontextmanager
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Any, AsyncGenerator, Dict, List, Optional, Union
 from urllib.parse import urlsplit
 
@@ -19,6 +20,7 @@ from fastapi import Path as FastapiPath
 from fastapi import Query, Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import (
+    FileResponse,
     HTMLResponse,
     JSONResponse,
     RedirectResponse,
@@ -554,6 +556,98 @@ def fastapi_config_file_put() -> ConfigEOS:
     """
     get_config().to_config_file()
     return get_config()
+
+
+@app.get("/v1/config/file", tags=["config"])
+def fastapi_config_file_get() -> FileResponse:
+    """Download the active EOS configuration file."""
+    config_file_path = get_config().general.config_file_path
+    if config_file_path is None:
+        raise EOSProblem(
+            status=404,
+            title="Configuration file unavailable",
+            detail="Configuration file path is unknown.",
+        )
+    if not config_file_path.exists() or not config_file_path.is_file():
+        raise EOSProblem(
+            status=404,
+            title="Configuration file not found",
+            detail=str(config_file_path),
+        )
+
+    return FileResponse(
+        path=config_file_path,
+        filename=ConfigEOS.CONFIG_FILE_NAME,
+        media_type="application/json",
+    )
+
+
+async def _config_file_upload_data(request: Request) -> dict[str, Any]:
+    """Read config JSON from a multipart upload or raw JSON request body."""
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        upload = form.get("file")
+        if upload is None or not hasattr(upload, "read"):
+            raise ValueError("No uploaded configuration file found in form field 'file'.")
+        raw = await upload.read()
+    else:
+        raw = await request.body()
+
+    if isinstance(raw, str):
+        raw_text = raw
+    else:
+        raw_text = raw.decode("utf-8-sig")
+
+    data = json.loads(raw_text)
+    if not isinstance(data, dict):
+        raise TypeError("Configuration file content must be a JSON object.")
+    return data
+
+
+def _config_file_operation_response(
+    action: str, backup_file_path: Optional[Path]
+) -> dict[str, Any]:
+    """Create a serializable response for config-file management actions."""
+    config_file_path = get_config().general.config_file_path
+    return {
+        "action": action,
+        "backup_id": Path(backup_file_path).suffix[1:] if backup_file_path else None,
+        "backup_file_path": str(backup_file_path) if backup_file_path else None,
+        "config_file_path": str(config_file_path) if config_file_path else None,
+        "configuration": get_config().model_dump(mode="json"),
+    }
+
+
+@app.post("/v1/config/file", tags=["config"])
+async def fastapi_config_file_post(request: Request) -> dict[str, Any]:
+    """Replace the EOS configuration file from uploaded or raw JSON content."""
+    try:
+        config_data = await _config_file_upload_data(request)
+        backup_file_path = get_config().replace_config_file(config_data)
+        return _config_file_operation_response("replace", backup_file_path)
+    except Exception as e:
+        raise EOSProblem(
+            status=400,
+            title="Error on replacement of configuration file",
+            detail=str(e),
+            cause=e,
+        ) from e
+
+
+@app.delete("/v1/config/file", tags=["config"])
+def fastapi_config_file_delete() -> dict[str, Any]:
+    """Delete and recreate the EOS configuration file with minimal defaults."""
+    try:
+        backup_file_path = get_config().delete_config_file()
+        return _config_file_operation_response("delete", backup_file_path)
+    except Exception as e:
+        raise EOSProblem(
+            status=400,
+            title="Error on deletion of configuration file",
+            detail=str(e),
+            cause=e,
+        ) from e
 
 
 @app.get("/v1/config", tags=["config"])

@@ -1,6 +1,6 @@
 # Akkudoktor-EOS
 
-**Version**: `v0.3.0.dev2609171762020752`
+**Version**: `v0.3.0.dev2609271526708980`
 
 <!-- pyml disable line-length -->
 **Description**: This project provides a comprehensive solution for simulating and optimizing an energy system based on renewable energy sources. With a focus on photovoltaic (PV) systems, battery storage (batteries), load management (consumer requirements), heat pumps, electric vehicles, and consideration of electricity price data, this system enables forecasting and optimization of energy flow and costs over a specified period.
@@ -555,6 +555,72 @@ Get the EOS configuration backup identifiers and backup metadata.
 
 Returns:
     dict[str, dict[str, Any]]: Mapping of backup identifiers to metadata.
+"""
+```
+<!-- pyml enable line-length -->
+
+**Responses**:
+
+- **200**: Successful Response
+
+---
+
+## DELETE /v1/config/file
+
+<!-- pyml disable line-length -->
+**Links**: [local](http://localhost:8503/docs#/default/fastapi_config_file_delete_v1_config_file_delete), [eos](https://petstore3.swagger.io/?url=https://raw.githubusercontent.com/Akkudoktor-EOS/EOS/refs/heads/main/openapi.json#/default/fastapi_config_file_delete_v1_config_file_delete)
+<!-- pyml enable line-length -->
+
+Fastapi Config File Delete
+
+<!-- pyml disable line-length -->
+```python
+"""
+Delete and recreate the EOS configuration file with minimal defaults.
+"""
+```
+<!-- pyml enable line-length -->
+
+**Responses**:
+
+- **200**: Successful Response
+
+---
+
+## GET /v1/config/file
+
+<!-- pyml disable line-length -->
+**Links**: [local](http://localhost:8503/docs#/default/fastapi_config_file_get_v1_config_file_get), [eos](https://petstore3.swagger.io/?url=https://raw.githubusercontent.com/Akkudoktor-EOS/EOS/refs/heads/main/openapi.json#/default/fastapi_config_file_get_v1_config_file_get)
+<!-- pyml enable line-length -->
+
+Fastapi Config File Get
+
+<!-- pyml disable line-length -->
+```python
+"""
+Download the active EOS configuration file.
+"""
+```
+<!-- pyml enable line-length -->
+
+**Responses**:
+
+- **200**: Successful Response
+
+---
+
+## POST /v1/config/file
+
+<!-- pyml disable line-length -->
+**Links**: [local](http://localhost:8503/docs#/default/fastapi_config_file_post_v1_config_file_post), [eos](https://petstore3.swagger.io/?url=https://raw.githubusercontent.com/Akkudoktor-EOS/EOS/refs/heads/main/openapi.json#/default/fastapi_config_file_post_v1_config_file_post)
+<!-- pyml enable line-length -->
+
+Fastapi Config File Post
+
+<!-- pyml disable line-length -->
+```python
+"""
+Replace the EOS configuration file from uploaded or raw JSON content.
 """
 ```
 <!-- pyml enable line-length -->

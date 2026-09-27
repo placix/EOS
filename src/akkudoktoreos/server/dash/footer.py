@@ -3,8 +3,7 @@ from urllib.parse import urlunsplit
 
 import requests
 from loguru import logger
-from monsterui.daisy import Loading, LoadingT
-from monsterui.franken import A, ButtonT, DivFullySpaced, P
+from monsterui.franken import A, ButtonT, DivFullySpaced, P, UkIcon
 from requests.exceptions import RequestException
 
 import akkudoktoreos.server.dash.eosstatus as eosstatus
@@ -54,12 +53,7 @@ def Footer(eos_host: Optional[str], eos_port: Optional[Union[str, int]], request
     else:
         alive = get_alive(eos_host, eos_port)
         if alive == "alive":
-            alive_icon = Loading(
-                cls=(
-                    LoadingT.ring,
-                    LoadingT.sm,
-                ),
-            )
+            alive_icon = UkIcon("loader-circle", cls="h-4 w-4 animate-spin")
             alive = f"EOS {url_host}:{eos_port}"
     if alive_icon:
         alive_cls = f"{ButtonT.primary} uk-link rounded-md"
@@ -94,5 +88,5 @@ def Footer(eos_host: Optional[str], eos_port: Optional[Union[str, int]], request
                 cls="uk-link",
             ),
         ),
-        cls="uk-padding-remove-top uk-padding-remove-botton",
+        cls="eos-footer-links uk-padding-remove-top uk-padding-remove-botton",
     )

@@ -25,6 +25,8 @@ The following is a list of licensors and other acknowledgements for third-party 
 - SciPy, licensed under the BSD License, see https://scipy.org/
 - scikit-learn (sklearn), licensed under the BSD License, see https://scikit-learn.org/
 - pandas, licensed under the BSD License, see https://pandas.pydata.org/
+- Franken UI, licensed under the MIT License, see https://github.com/franken-ui/ui/
+- Tailwind CSS, licensed under the MIT License, see https://github.com/tailwindlabs/tailwindcss/
 
 
 DISCLAIMER:

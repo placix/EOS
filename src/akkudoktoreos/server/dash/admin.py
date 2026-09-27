@@ -5,18 +5,19 @@ for the EOS dashboard.
 """
 
 import json
+from pathlib import Path
 from typing import Any, Optional, Union
 
 import requests
-from fasthtml.common import Select
+from fasthtml.common import Button, Select
 from loguru import logger
 from monsterui.franken import (  # Select, TODO: Select from FrankenUI does not work - using Select from FastHTML instead
     H3,
+    ButtonT,
     Card,
     Details,
     Div,
     DivHStacked,
-    DividerLine,
     Grid,
     Input,
     Options,
@@ -25,10 +26,21 @@ from monsterui.franken import (  # Select, TODO: Select from FrankenUI does not 
     UkIcon,
 )
 
-from akkudoktoreos.server.dash.components import ConfigButton, Error, Success
+from akkudoktoreos.server.dash.components import ConfigButton, ConfigSection, Error, Success
 from akkudoktoreos.server.dash.configuration import get_nested_value
 from akkudoktoreos.server.dash.context import export_import_directory, request_url_for
 from akkudoktoreos.utils.datetimeutil import to_datetime
+
+
+def _is_protected_config_file(file_path: Path, config_file_path: str) -> bool:
+    """Return whether an exported JSON file must not be offered for deletion."""
+    if file_path.name.casefold() == "eos.config.json":
+        return True
+
+    try:
+        return file_path.resolve() == Path(config_file_path).resolve()
+    except (OSError, RuntimeError):
+        return False
 
 
 def AdminCache(
@@ -163,6 +175,8 @@ def AdminConfig(
     export_to_file_status = (None,)
     # import config file
     import_from_file_status = (None,)
+    # delete exported config file
+    delete_export_file_status = (None,)
 
     if data and data.get("category", None) == category:
         # This data is for us
@@ -274,9 +288,39 @@ def AdminConfig(
                 import_from_file_status = Error(
                     f"Can not import config from '{import_file_name}', not found in '{export_import_directory}' on '{eosdash_hostname}'"
                 )
+        elif data["action"] == "delete_export_file":
+            delete_file_name = data.get("delete_file_name")
+            export_files = {
+                file_path.name: file_path
+                for file_path in export_import_directory.glob("*.json")
+                if not _is_protected_config_file(file_path, config_file_path)
+            }
+            delete_file_path = export_files.get(delete_file_name)
+            if delete_file_path is None:
+                delete_export_file_status = Error(
+                    f"Can not delete '{delete_file_name}', not found in "
+                    f"'{export_import_directory}' on '{eosdash_hostname}'"
+                )
+            else:
+                try:
+                    delete_file_path.unlink()
+                    delete_export_file_status = Success(
+                        f"Deleted '{delete_file_path.name}' from '{export_import_directory}' "
+                        f"on '{eosdash_hostname}'"
+                    )
+                except Exception as e:
+                    delete_export_file_status = Error(
+                        f"Can not delete '{delete_file_path.name}' from "
+                        f"'{export_import_directory}' on '{eosdash_hostname}': {e}"
+                    )
 
     # Update for display, in case we added a new file before
     import_from_file_names = sorted([f.name for f in list(export_import_directory.glob("*.json"))])
+    delete_export_file_names = sorted(
+        file_path.name
+        for file_path in export_import_directory.glob("*.json")
+        if not _is_protected_config_file(file_path, config_file_path)
+    )
     if config_backup is None:
         revert_to_backup_metadata_list = ["Backup list not available"]
     else:
@@ -398,6 +442,40 @@ def AdminConfig(
                     P(f"Import configuration from config file on '{eosdash_hostname}'."),
                 ),
             ),
+            Card(
+                Details(
+                    Summary(
+                        Grid(
+                            DivHStacked(
+                                UkIcon(icon="trash-2"),
+                                Button(
+                                    "Delete file",
+                                    type="button",
+                                    cls=f"uk-btn {ButtonT.destructive}",
+                                    hx_post=request_url_for("/eosdash/admin"),
+                                    hx_target="#page-content",
+                                    hx_swap="innerHTML",
+                                    hx_confirm="Delete the selected exported configuration file?",
+                                    hx_vals='js:{ "category": "configuration", "action": "delete_export_file", "delete_file_name": document.querySelector("[name=\'selected_delete_file_name\']").value }',
+                                ),
+                                Select(
+                                    *Options(*delete_export_file_names),
+                                    id="delete_file_name",
+                                    name="selected_delete_file_name",
+                                    cls="border rounded px-3 py-2 mr-2",
+                                    placeholder="Select file",
+                                ),
+                            ),
+                            delete_export_file_status,
+                        ),
+                        cls="list-none",
+                    ),
+                    P(
+                        f"Delete a saved configuration export from '{export_import_directory}' "
+                        f"on '{eosdash_hostname}'. The active EOS.config.json is never affected."
+                    ),
+                ),
+            ),
         ],
     )
 
@@ -514,21 +592,32 @@ def Admin(eos_host: str, eos_port: Union[str, int], data: Optional[dict] = None)
         logger.warning(warning_msg)
         return Error(warning_msg)
 
-    rows = []
-    last_category = ""
+    sections = []
+    open_category = data.get("category") if data else "cache"
     for category, admin in [
         AdminCache(eos_host, eos_port, data, config),
         AdminConfig(eos_host, eos_port, data, config, config_backup),
         AdminDatabase(eos_host, eos_port, data, config),
     ]:
-        if category != last_category:
-            rows.append(H3(category))
-            rows.append(DividerLine())
-            last_category = category
-        if isinstance(admin, list):
-            for card in admin:
-                rows.append(card)
-        else:
-            rows.append(admin)
+        content = admin if isinstance(admin, list) else [admin]
+        sections.append(
+            ConfigSection(
+                category.title(),
+                *content,
+                open=category == open_category,
+                id=f"admin-{category}-section",
+                data_admin_category=category,
+            )
+        )
 
-    return Div(*rows, cls="space-y-4")
+    return Div(
+        Div(
+            H3("Administration", cls="text-xl font-semibold"),
+            P(
+                "Maintenance, backups and server-side data operations.",
+                cls="text-sm text-muted-foreground",
+            ),
+        ),
+        *sections,
+        cls="space-y-4",
+    )

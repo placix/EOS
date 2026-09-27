@@ -100,8 +100,12 @@ configuration files, and it depends on whether the relevant environment variable
 
 Use the following endpoints to interact with the configuration file:
 
+- `GET /v1/config/file`: Download the active `EOS.config.json` file.
 - `PUT /v1/config/file`: Save the current configuration to the configuration file.
-- `PUT /v1/config/reset`: Reload the configuration file, all unsaved runtime configuration is reset.
+- `POST /v1/config/file`: Replace `EOS.config.json` with uploaded or raw JSON content.
+- `DELETE /v1/config/file`: Back up the active file, delete it, and recreate a minimal default
+  `EOS.config.json`.
+- `POST /v1/config/reset`: Reload the configuration file, all unsaved runtime configuration is reset.
 
 ### Default Values
 

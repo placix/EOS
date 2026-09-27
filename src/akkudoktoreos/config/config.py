@@ -11,6 +11,7 @@ Key features:
 
 import json
 import os
+import shutil
 import sys
 import tempfile
 from copy import deepcopy
@@ -1149,6 +1150,57 @@ class ConfigEOS(SingletonMixin, SettingsEOSDefaults):
             ensure_ascii=False,
         )
 
+    def _backup_config_file(self, action: str) -> Optional[Path]:
+        """Create a timestamped backup of the active configuration file if it exists."""
+        config_file_path = self.general.config_file_path
+        if config_file_path is None:
+            raise ValueError("Configuration file path unknown.")
+        if not config_file_path.exists():
+            return None
+
+        timestamp = to_datetime(as_string="YYYYMMDDHHmmss")
+        backup_file_path = config_file_path.with_suffix(f".{timestamp}-{action}")
+        counter = 1
+        while backup_file_path.exists():
+            backup_file_path = config_file_path.with_suffix(f".{timestamp}-{action}-{counter}")
+            counter += 1
+
+        shutil.copy2(config_file_path, backup_file_path)
+        logger.info(f"Backed up configuration file to '{backup_file_path}'.")
+        return backup_file_path
+
+    def _config_json_from_data(self, config_data: dict[str, Any]) -> str:
+        """Validate, migrate, and normalize raw configuration data as JSON."""
+        migrated_config = migrate_config_data(config_data)
+        json_str = migrated_config.model_dump_json(
+            exclude_computed_fields=True,
+            exclude_defaults=True,
+            exclude_none=True,
+            by_alias=True,
+        )
+        root: Any = json.loads(json_str)
+
+        def remove_empty(
+            obj: Union[dict[str, Any], list[Any], Any],
+        ) -> Union[dict[str, Any], list[Any], Any]:
+            if isinstance(obj, dict):
+                cleaned: dict[str, Any] = {k: remove_empty(v) for k, v in obj.items()}
+                return {k: v for k, v in cleaned.items() if v not in (None, {}, [])}
+            if isinstance(obj, list):
+                cleaned_list: list[Any] = [remove_empty(v) for v in obj]
+                return [v for v in cleaned_list if v not in (None, {}, [])]
+            return obj
+
+        cleaned_root = remove_empty(root)
+        if not isinstance(cleaned_root, dict):
+            raise TypeError(
+                f"Configuration serialization error: root element must be a dictionary, "
+                f"got {type(cleaned_root).__name__}"
+            )
+        cleaned_root.setdefault("general", {})
+        cleaned_root["general"]["version"] = __version__
+        return json.dumps(cleaned_root, indent=4, sort_keys=True, ensure_ascii=False)
+
     def to_config_file(self) -> None:
         """Saves the current configuration to the configuration file.
 
@@ -1162,6 +1214,76 @@ class ConfigEOS(SingletonMixin, SettingsEOSDefaults):
         with self.general.config_file_path.open("w", encoding="utf-8", newline="\n") as f_out:
             f_out.write(self.to_config_json())
         logger.info(f"Saved configuration to '{self.general.config_file_path}'.")
+
+    def replace_config_file(self, config_data: dict[str, Any]) -> Optional[Path]:
+        """Replace the active configuration file with validated JSON data.
+
+        The previous file is backed up before the replacement is written. Runtime
+        settings are cleared and the configuration is reloaded from the new file.
+
+        Args:
+            config_data: Raw JSON object to use as the new configuration.
+
+        Returns:
+            Path to the backup file, or ``None`` when no previous file existed.
+        """
+        if not isinstance(config_data, dict):
+            raise TypeError("Configuration file content must be a JSON object.")
+        config_file_path = self.general.config_file_path
+        if config_file_path is None:
+            raise ValueError("Configuration file path unknown.")
+
+        config_json = self._config_json_from_data(config_data)
+        previous_runtime_settings = deepcopy(ConfigEOS._runtime_settings)
+        backup_file_path = self._backup_config_file("replace")
+
+        try:
+            config_file_path.parent.mkdir(parents=True, exist_ok=True)
+            config_file_path.write_text(config_json, encoding="utf-8", newline="\n")
+            ConfigEOS._runtime_settings = {}
+            self._setup()
+            ConfigEOS._config_autosave = self.to_config_json()
+        except Exception:
+            if backup_file_path is not None and backup_file_path.exists():
+                shutil.copy2(backup_file_path, config_file_path)
+            ConfigEOS._runtime_settings = previous_runtime_settings
+            self._setup()
+            raise
+
+        logger.info(f"Replaced configuration file '{config_file_path}'.")
+        return backup_file_path
+
+    def delete_config_file(self) -> Optional[Path]:
+        """Delete the active configuration file and recreate a minimal default one.
+
+        The previous file is backed up before deletion. Because EOS always needs a
+        readable configuration source while running, setup recreates the minimal
+        default file immediately after deletion.
+
+        Returns:
+            Path to the backup file, or ``None`` when no previous file existed.
+        """
+        config_file_path = self.general.config_file_path
+        if config_file_path is None:
+            raise ValueError("Configuration file path unknown.")
+
+        previous_runtime_settings = deepcopy(ConfigEOS._runtime_settings)
+        backup_file_path = self._backup_config_file("delete")
+
+        try:
+            config_file_path.unlink(missing_ok=True)
+            ConfigEOS._runtime_settings = {}
+            self._setup()
+            ConfigEOS._config_autosave = self.to_config_json()
+        except Exception:
+            if backup_file_path is not None and backup_file_path.exists():
+                shutil.copy2(backup_file_path, config_file_path)
+            ConfigEOS._runtime_settings = previous_runtime_settings
+            self._setup()
+            raise
+
+        logger.info(f"Deleted and recreated minimal configuration file '{config_file_path}'.")
+        return backup_file_path
 
     def autosave(self) -> None:
         """Saves the current configuration if AUTOMATIC save mode is configured.

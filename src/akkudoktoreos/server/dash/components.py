@@ -2,19 +2,13 @@ import json
 import re
 from typing import Any, Callable, Optional, Union
 
-from fasthtml.common import H1, Button, Div, Li, Select
-from monsterui.daisy import (
-    Alert,
-    AlertT,
-)
+from fasthtml.common import A, H1, Button, Div, Img, Li, Select, Span
 from monsterui.foundations import stringify
 from monsterui.franken import (  # Select: Does not work - using Select from FastHTML instead;; Button: Does not pass hx_vals - using Button from FastHTML instead
     H3,
     ButtonT,
     Card,
     Code,
-    Container,
-    ContainerT,
     Details,
     DivHStacked,
     DivLAligned,
@@ -23,11 +17,13 @@ from monsterui.franken import (  # Select: Does not work - using Select from Fas
     Grid,
     Input,
     Kbd,
+    NavContainer,
+    NavT,
     Option,
     P,
     Pre,
     Summary,
-    TabContainer,
+    ThemePicker,
     UkIcon,
 )
 
@@ -150,23 +146,25 @@ def TextView(*c: Any, cls: Optional[Union[str, tuple]] = None, **kwargs: Any) ->
     return Pre(*c, **kwargs)
 
 
-def Success(*c: Any) -> Alert:
-    return Alert(
+def Success(*c: Any) -> Div:
+    return Div(
         DivLAligned(
             UkIcon("check"),
             TextView(*c),
         ),
-        cls=AlertT.success,
+        role="alert",
+        cls="uk-alert uk-alert-success rounded-md border border-green-300 bg-green-50 p-3 text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-100",
     )
 
 
-def Error(*c: Any) -> Alert:
-    return Alert(
+def Error(*c: Any) -> Div:
+    return Div(
         DivLAligned(
             UkIcon("triangle-alert"),
             TextView(*c),
         ),
-        cls=AlertT.error,
+        role="alert",
+        cls="uk-alert uk-alert-danger rounded-md border border-red-300 bg-red-50 p-3 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-100",
     )
 
 
@@ -181,14 +179,14 @@ def ConfigButton(*c: Any, cls: Optional[Union[str, tuple]] = None, **kwargs: Any
     Returns:
         Button: A styled `Button` component for configuration actions.
     """
-    new_cls = f"px-4 py-2 rounded {ButtonT.primary}"
+    new_cls = f"inline-flex items-center gap-2 rounded-md px-4 py-2 {ButtonT.primary}"
     if cls:
         new_cls += f"{stringify(cls)}"
     kwargs["cls"] = new_cls
     return Button(*c, submit=False, **kwargs)
 
 
-def UpdateError(error_text: str) -> Alert:
+def UpdateError(error_text: str) -> Div:
     """Renders a compact error with collapsible full detail.
 
     Extracts the short pydantic validation message (text after
@@ -208,7 +206,7 @@ def UpdateError(error_text: str) -> Alert:
     if not short:
         short = error_text.splitlines()[0].strip()
 
-    return Alert(
+    return Div(
         Details(
             Summary(
                 DivLAligned(
@@ -222,7 +220,8 @@ def UpdateError(error_text: str) -> Alert:
                 cls="rounded-lg bg-muted p-3 mt-2 max-h-[30vh] overflow-y-auto overflow-x-hidden whitespace-pre-wrap text-xs",
             ),
         ),
-        cls=AlertT.error,
+        role="alert",
+        cls="uk-alert uk-alert-danger rounded-md border border-red-300 bg-red-50 p-3 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-100",
     )
 
 
@@ -979,70 +978,67 @@ def ConfigCard(
     if deprecated:
         if isinstance(deprecated, bool):
             deprecated = "Deprecated"
-    return Card(
-        Details(
-            Summary(
+    return Details(
+        Summary(
+            Grid(
                 Grid(
-                    Grid(
-                        DivLAligned(
-                            UkIcon(icon="play"),
-                            P(config_name),
-                        ),
-                        DivRAligned(
-                            P(read_only),
-                        ),
+                    DivLAligned(
+                        UkIcon(icon="play"),
+                        P(config_name),
                     ),
-                    JsonView(json.loads(value)),
+                    DivRAligned(
+                        P(read_only),
+                    ),
                 ),
-                cls="list-none",
+                JsonView(json.loads(value)),
             ),
-            Grid(
-                Div(
-                    DivHStacked(
-                        *[Kbd(s) for s in scope],
-                    )
-                    if scope
-                    else None,
-                    Markdown(description),
-                ),
-                P(config_type),
-            )
-            if not deprecated
-            else None,
-            Grid(
-                P(deprecated),
-                P("DEPRECATED!"),
-            )
-            if deprecated
-            else None,
-            # Default
-            Grid(
-                DivRAligned(P("default")),
-                P(default),
-            )
-            if read_only == "rw" and not deprecated
-            else None,
-            # Set value
-            update_form if read_only == "rw" and not deprecated else None,
-            # Last error
-            Grid(
-                DivRAligned(P("update error")),
-                UpdateError(update_error),
-            )
-            if update_error
-            else None,
-            # Provide minimal update form on error if complex update_form is used
-            make_config_update_form()(config_name, update_value)
-            if update_error and update_form_factory is not None
-            else None,
-            cls="space-y-4 gap-4",
-            open=update_open,
+            cls="list-none",
         ),
-        cls="w-full",
+        Grid(
+            Div(
+                DivHStacked(
+                    *[Kbd(s) for s in scope],
+                )
+                if scope
+                else None,
+                Markdown(description),
+            ),
+            P(config_type),
+        )
+        if not deprecated
+        else None,
+        Grid(
+            P(deprecated),
+            P("DEPRECATED!"),
+        )
+        if deprecated
+        else None,
+        # Default
+        Grid(
+            DivRAligned(P("default")),
+            P(default),
+        )
+        if read_only == "rw" and not deprecated
+        else None,
+        # Set value
+        update_form if read_only == "rw" and not deprecated else None,
+        # Last error
+        Grid(
+            DivRAligned(P("update error")),
+            UpdateError(update_error),
+        )
+        if update_error
+        else None,
+        # Provide minimal update form on error if complex update_form is used
+        make_config_update_form()(config_name, update_value)
+        if update_error and update_form_factory is not None
+        else None,
+        cls="w-full space-y-4 gap-4",
+        open=update_open,
     )
 
 
-def ConfigSection(title: str, *content: Any, open: bool = False) -> Details:
+def ConfigSection(title: str, *content: Any, open: bool = False, **kwargs: Any) -> Details:
     """Collapsible section for grouping configuration entries."""
     return Details(
         Summary(
@@ -1055,46 +1051,38 @@ def ConfigSection(title: str, *content: Any, open: bool = False) -> Details:
         ),
         Div(*content, cls="space-y-3 mt-3"),
         open=open,
-        cls="group border rounded-lg p-2",
+        cls="eos-section group",
+        **kwargs,
     )
 
 
 def DashboardHeader(title: Optional[str]) -> Div:
-    """Creates a styled header with a title.
+    """Create the compact header around MonsterUI navigation."""
+    return Div(
+        H1(title or "Plan", cls="eos-page-heading", data_eos_page_title=True),
+        Div(
+            Span(cls="eos-status-dot", title="EOSdash online"),
+            Span("EOSdash online", cls="text-sm text-muted-foreground hidden sm:inline"),
+            cls="flex items-center gap-2",
+        ),
+        cls="eos-topbar",
+    )
 
-    Args:
-        title (Optional[str]): The title text for the header.
 
-    Returns:
-        Div: A styled `Div` element containing the header.
-    """
-    if title is None:
-        return Div("", cls="header")
-    return Div(H1(title, cls="text-2xl font-bold mb-4"), cls="header")
-
-
-def DashboardFooter(*c: Any, path: str) -> Card:
-    """Creates a styled footer with the provided information.
-
-    The footer content is reloaded every 5 seconds from path.
-
-    Args:
-        path (str): Path to reload footer content from
-
-    Returns:
-        Card: A styled `Card` element containing the footer.
-    """
-    return Card(
-        Container(*c, id="footer-content"),
+def DashboardFooter(*c: Any, path: str) -> Div:
+    """Create a footer with periodically refreshed status."""
+    return Div(
+        Div(*c, id="footer-content"),
         hx_get=request_url_for(path),
         hx_trigger="every 5s",
         hx_target="#footer-content",
         hx_swap="innerHTML",
         hx_include=HTMX_INCLUDE,
+        cls="eos-footer",
     )
 
 
-def DashboardTrigger(*c: Any, cls: Optional[Union[str, tuple]] = None, **kwargs: Any) -> Button:
+def DashboardTrigger(*c: Any, cls: Optional[Union[str, tuple]] = None, **kwargs: Any) -> A:
     """Creates a styled button for the dashboard trigger.
 
     Args:
@@ -1103,17 +1091,16 @@ def DashboardTrigger(*c: Any, cls: Optional[Union[str, tuple]] = None, **kwargs:
         **kwargs: Additional keyword arguments for the button.
 
     Returns:
-        Button: A styled `Button` component.
+        A: A navigation link component.
     """
-    #   new_cls = f"{ButtonT.primary} uk-border-rounded uk-padding-small"
-    new_cls = "uk-btn uk-btn-primary uk-border-rounded uk-padding-medium"
+    new_cls = "eos-nav-link"
     if cls:
         new_cls += f" {stringify(cls)}"
     kwargs["cls"] = new_cls
-    return Button(*c, submit=False, **kwargs)
+    return A(*c, href="#", **kwargs)
 
 
-def DashboardTabs(dashboard_items: dict[str, str]) -> Card:
+def DashboardTabs(dashboard_items: dict[str, str]) -> Div:
     """Creates a dashboard tab with dynamic dashboard items.
 
     Args:
@@ -1121,36 +1108,44 @@ def DashboardTabs(dashboard_items: dict[str, str]) -> Card:
             and values are paths for navigation.
 
     Returns:
-        Card: A styled `Card` component containing the dashboard tabs.
+        Div: MonsterUI navigation containing the dashboard links.
     """
+    menu_icons = {
+        "Plan": "calendar-days",
+        "Prediction": "chart-line",
+        "Config": "settings",
+        "Admin": "shield",
+        "About": "circle-help",
+    }
     dash_items = [
         Li(
             DashboardTrigger(
-                H3(menu),
+                UkIcon(menu_icons.get(menu, "circle")),
+                Span(menu),
                 hx_get=request_url_for(path),
                 hx_target="#page-content",
                 hx_swap="innerHTML",
-                hx_vals='js:{ "dark": window.matchMedia("(prefers-color-scheme: dark)").matches }',
+                hx_vals='js:{ "dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") }',
                 hx_include=HTMX_INCLUDE,
-            ),
+                data_page_title=menu,
+                cls="uk-active" if index == 0 else None,
+            )
         )
-        for menu, path in dashboard_items.items()
+        for index, (menu, path) in enumerate(dashboard_items.items())
     ]
-    return Card(TabContainer(*dash_items, cls="gap-4"), alt=True)
+    return NavContainer(*dash_items, cls=(NavT.secondary, "eos-nav"))
 
 
-def DashboardContent(content: Any) -> Card:
-    """Creates a content section within a styled card.
+def DashboardContent(content: Any) -> Div:
+    """Create the unframed dashboard content region.
 
     Args:
         content (Any): The content to display.
 
     Returns:
-        Card: A styled `Card` element containing the content.
+        Div: The dashboard content region.
     """
-    return Card(
-        ScrollArea(Container(content, id="page-content"), cls="h-[75vh] w-full rounded-md"),
-    )
+    return Div(content, id="page-content", cls="eos-content")
 
 
 def Page(
@@ -1172,10 +1167,54 @@ def Page(
     Returns:
         Div: A `Div` element representing the entire page layout.
     """
-    return Container(
-        DashboardHeader(title),
-        DashboardTabs(dashboard_items),
-        DashboardContent(content),
-        DashboardFooter(footer_content, path=footer_path),
-        cls=("bg-background text-foreground w-screen p-4 space-y-4", ContainerT.xl),
+    return Div(
+        Div(
+            Div(
+                Div(
+                    Img(
+                        src=request_url_for("/eosdash/assets/icon.png"),
+                        alt="EOS",
+                        width="36",
+                        height="36",
+                    ),
+                    Div(
+                        Div("EOSdash", cls="eos-brand-name"),
+                        Div("Energy optimization", cls="eos-brand-subtitle"),
+                    ),
+                    cls="eos-brand",
+                ),
+                Button(
+                    UkIcon("menu"),
+                    type="button",
+                    cls=f"uk-btn {ButtonT.ghost} {ButtonT.icon} eos-mobile-only",
+                    data_eos_menu_toggle=True,
+                    title="Open navigation",
+                    aria_label="Open navigation",
+                ),
+                Div(
+                    DashboardTabs(dashboard_items),
+                    Div(
+                        ThemePicker(
+                            color=False,
+                            radii=False,
+                            shadows=False,
+                            font=False,
+                            mode=True,
+                            cls="w-full",
+                        ),
+                        cls="eos-header-tools",
+                    ),
+                    cls="eos-nav-panel",
+                ),
+                cls="eos-header-row",
+            ),
+            cls="eos-header",
+        ),
+        Div(
+            DashboardHeader(title),
+            DashboardContent(content),
+            DashboardFooter(footer_content, path=footer_path),
+            cls="eos-main",
+        ),
+        cls="eos-shell",
     )
