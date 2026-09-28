@@ -1156,7 +1156,7 @@ def DashboardContent(content: Any) -> Div:
 def DashboardLoadingOverlay() -> Div:
     """Create the loading indicator used for dashboard navigation requests."""
     return Div(
-        Div(data_uk_spinner="ratio: 2.5", cls="eos-loading-spinner"),
+        Div(data_uk_spinner="ratio: 1.25", cls="eos-loading-spinner"),
         id="eos-page-loading",
         cls="eos-loading-overlay",
         role="status",

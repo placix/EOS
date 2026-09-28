@@ -58,6 +58,7 @@ EOSDASH_STYLES = Style(
         transition-delay: .08s, 0s;
     }
     .eos-loading-spinner { color: #15803d; }
+    .eos-loading-spinner.uk-spinner > * > * { stroke-width: 2; }
     @media (prefers-reduced-motion: reduce) {
         .eos-loading-spinner.uk-spinner > *,
         .eos-loading-spinner.uk-spinner > * > * { animation-duration: 2.4s; }
