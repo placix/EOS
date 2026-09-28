@@ -240,6 +240,15 @@ def test_configuration_sections_use_compact_group_styling() -> None:
     assert "font-size: 1rem" in styles
 
 
+def test_footer_uses_the_content_width_without_distributed_links() -> None:
+    styles = to_xml(EOSDASH_STYLES)
+
+    assert ".eos-footer {" in styles
+    assert "width: 100%; max-width: 100rem; margin: 0 auto" in styles
+    assert "grid-template-columns: repeat(4, max-content)" in styles
+    assert "justify-content: start" in styles
+
+
 def test_status_messages_use_frankenui_alert_markup() -> None:
     success = to_xml(Success("Saved"))
     error = to_xml(Error("Invalid JSON"))

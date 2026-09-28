@@ -63,8 +63,14 @@ EOSDASH_STYLES = Style(
         .eos-loading-spinner.uk-spinner > *,
         .eos-loading-spinner.uk-spinner > * > * { animation-duration: 2.4s; }
     }
-    .eos-footer { padding: 0 1.25rem 1.25rem; color: hsl(var(--muted-foreground)); font-size: .8125rem; }
-    .eos-footer-links { display: grid !important; grid-template-columns: repeat(4, auto); gap: .75rem 1.5rem; }
+    .eos-footer {
+        width: 100%; max-width: 100rem; margin: 0 auto; padding: 0 1.25rem 1.25rem;
+        color: hsl(var(--muted-foreground)); font-size: .8125rem;
+    }
+    .eos-footer-links {
+        display: grid !important; grid-template-columns: repeat(4, max-content);
+        justify-content: start; align-items: center; gap: .75rem 1.5rem;
+    }
     .eos-footer-links > * { margin: 0; min-width: 0; }
     .eos-footer-status { display: flex; align-items: center; gap: .45rem; min-height: 1.5rem; }
     .eos-footer-status-dot { width: .5rem; height: .5rem; border-radius: 50%; flex: 0 0 auto; }
