@@ -34,6 +34,10 @@ def test_page_uses_monsterui_navigation_and_theme_picker() -> None:
     assert "eos-nav-link uk-active" in html
     assert "<uk-theme-switcher" in html
     assert 'id="page-content"' in html
+    assert 'id="eos-page-loading"' in html
+    assert 'icon="loader-circle"' in html
+    assert 'hx-indicator="#eos-page-loading"' in html
+    assert 'role="status"' in html
     assert 'src="data:image/png;base64,' in html
     assert "/eosdash/assets/icon.png" not in html
 

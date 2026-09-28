@@ -47,6 +47,22 @@ EOSDASH_STYLES = Style(
     }
     .eos-content > * { min-width: 0; }
     .eos-content img { max-width: 100%; height: auto; }
+    .eos-loading-overlay {
+        position: fixed; inset: 0; z-index: 45; display: grid; place-items: center;
+        background: hsl(var(--background) / .58); backdrop-filter: blur(1px);
+        opacity: 0; visibility: hidden; pointer-events: none;
+        transition: opacity .14s ease, visibility 0s linear .14s;
+    }
+    .eos-loading-overlay.htmx-request {
+        opacity: 1; visibility: visible; pointer-events: auto;
+        transition-delay: .08s, 0s;
+    }
+    .eos-loading-spinner {
+        width: 2.75rem; height: 2.75rem; color: #16a34a;
+        animation: eos-loading-spin .8s linear infinite;
+    }
+    @keyframes eos-loading-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .eos-loading-spinner { animation-duration: 1.8s; } }
     .eos-footer { padding: 0 1.25rem 1.25rem; color: hsl(var(--muted-foreground)); font-size: .8125rem; }
     .eos-footer-links { display: grid !important; grid-template-columns: repeat(4, auto); gap: .75rem 1.5rem; }
     .eos-footer-links > * { margin: 0; min-width: 0; }

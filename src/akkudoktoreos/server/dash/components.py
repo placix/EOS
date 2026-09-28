@@ -1130,6 +1130,7 @@ def DashboardTabs(dashboard_items: dict[str, str]) -> Div:
                 hx_get=request_url_for(path),
                 hx_target="#page-content",
                 hx_swap="innerHTML",
+                hx_indicator="#eos-page-loading",
                 hx_vals='js:{ "dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") }',
                 data_page_title=menu,
                 cls="uk-active" if index == 0 else None,
@@ -1150,6 +1151,17 @@ def DashboardContent(content: Any) -> Div:
         Div: The dashboard content region.
     """
     return Div(content, id="page-content", cls="eos-content")
+
+
+def DashboardLoadingOverlay() -> Div:
+    """Create the loading indicator used for dashboard navigation requests."""
+    return Div(
+        UkIcon("loader-circle", cls="eos-loading-spinner"),
+        id="eos-page-loading",
+        cls="eos-loading-overlay",
+        role="status",
+        aria_label="Loading page",
+    )
 
 
 def Page(
@@ -1217,6 +1229,7 @@ def Page(
         Div(
             DashboardHeader(title),
             DashboardContent(content),
+            DashboardLoadingOverlay(),
             DashboardFooter(footer_content, path=footer_path),
             cls="eos-main",
         ),
