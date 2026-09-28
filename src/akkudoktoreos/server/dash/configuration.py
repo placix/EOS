@@ -611,6 +611,7 @@ def Configuration(
                     + '"dark": window.eosTheme ? window.eosTheme.isDark() : document.documentElement.classList.contains("dark") '
                     + "}",
                     hx_include=HTMX_INCLUDE,
+                    cls="eos-config-readonly-toggle",
                     # lbl_cls=f"text-{solution_color[renderer]}",
                 )
                 for renderer in list(config_visible.keys())

@@ -9,7 +9,7 @@ from fasthtml.common import Div, to_xml
 import akkudoktoreos.server.dash.admin as admin_module
 from akkudoktoreos.server.dash.admin import Admin, AdminConfig
 from akkudoktoreos.server.dash.components import Error, Page, Success
-from akkudoktoreos.server.dash.theme import EOSDASH_SCRIPT
+from akkudoktoreos.server.dash.theme import EOSDASH_SCRIPT, EOSDASH_STYLES
 
 
 def test_page_uses_monsterui_navigation_and_theme_picker() -> None:
@@ -211,6 +211,17 @@ def test_json_configuration_uses_a_save_action() -> None:
     assert 'value="save_raw_config"' in configuration_source
     assert "data_json_error=True" in configuration_source
     assert '"Reset"' not in configuration_source
+
+
+def test_readonly_configuration_toggle_has_explicit_spacing() -> None:
+    configuration_source = (
+        Path(__file__).parents[1] / "src" / "akkudoktoreos" / "server" / "dash" / "configuration.py"
+    ).read_text(encoding="utf-8")
+    styles = to_xml(EOSDASH_STYLES)
+
+    assert 'cls="eos-config-readonly-toggle"' in configuration_source
+    assert ".eos-config-readonly-toggle" in styles
+    assert "gap: .625rem" in styles
 
 
 def test_status_messages_use_frankenui_alert_markup() -> None:

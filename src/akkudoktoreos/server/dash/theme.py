@@ -77,6 +77,8 @@ EOSDASH_STYLES = Style(
     .eos-section[open] > summary { border-bottom: 1px solid hsl(var(--border)); }
     .eos-section > div { padding: 1rem; }
     .eos-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+    .eos-config-readonly-toggle { display: flex; align-items: center; gap: .625rem; }
+    .eos-config-readonly-toggle > input { flex: 0 0 auto; margin: 0; }
     .eos-json-editor { min-height: 32rem; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.55; tab-size: 2; }
     .eos-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: .75rem; }
     summary { cursor: pointer; }
