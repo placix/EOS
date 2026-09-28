@@ -35,7 +35,8 @@ def test_page_uses_monsterui_navigation_and_theme_picker() -> None:
     assert "<uk-theme-switcher" in html
     assert 'id="page-content"' in html
     assert 'id="eos-page-loading"' in html
-    assert 'icon="loader-circle"' in html
+    assert 'data-uk-spinner="ratio: 2.5"' in html
+    assert 'icon="loader-circle"' not in html
     assert 'hx-indicator="#eos-page-loading"' in html
     assert 'role="status"' in html
     assert 'src="data:image/png;base64,' in html

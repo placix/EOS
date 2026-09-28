@@ -57,12 +57,11 @@ EOSDASH_STYLES = Style(
         opacity: 1; visibility: visible; pointer-events: auto;
         transition-delay: .08s, 0s;
     }
-    .eos-loading-spinner {
-        width: 2.75rem; height: 2.75rem; color: #16a34a;
-        animation: eos-loading-spin .8s linear infinite;
+    .eos-loading-spinner { color: #15803d; }
+    @media (prefers-reduced-motion: reduce) {
+        .eos-loading-spinner.uk-spinner > *,
+        .eos-loading-spinner.uk-spinner > * > * { animation-duration: 2.4s; }
     }
-    @keyframes eos-loading-spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .eos-loading-spinner { animation-duration: 1.8s; } }
     .eos-footer { padding: 0 1.25rem 1.25rem; color: hsl(var(--muted-foreground)); font-size: .8125rem; }
     .eos-footer-links { display: grid !important; grid-template-columns: repeat(4, auto); gap: .75rem 1.5rem; }
     .eos-footer-links > * { margin: 0; min-width: 0; }
