@@ -80,6 +80,12 @@ EOSDASH_STYLES = Style(
     .eos-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
     .eos-config-readonly-toggle { display: flex; align-items: center; gap: .625rem; }
     .eos-config-readonly-toggle > input { flex: 0 0 auto; margin: 0; }
+    .eos-config-settings { display: grid; gap: .625rem; }
+    .eos-config-section > summary { padding: .55rem .75rem; }
+    .eos-config-section > summary h3 {
+        margin: 0; font-size: 1rem; line-height: 1.5rem; font-weight: 600;
+    }
+    .eos-config-section > div { margin-top: 0; }
     .eos-admin-action-summary { display: grid; gap: .75rem; min-width: 0; }
     .eos-admin-action-row {
         display: grid; grid-template-columns: 1.25rem 11rem minmax(0, 36rem);

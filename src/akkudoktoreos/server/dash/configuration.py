@@ -859,7 +859,7 @@ def Configuration(
     settings_view = Div(
         Grid(ConfigMenu, SearchBar, cols=2),
         *section_components,
-        cls="space-y-4",
+        cls="eos-config-settings",
     )
     view_tabs = TabContainer(
         Li(A(UkIcon("settings"), "Settings", href="#"), cls="uk-active"),

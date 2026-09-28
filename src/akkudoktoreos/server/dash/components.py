@@ -1057,7 +1057,7 @@ def ConfigSection(title: str, *content: Any, open: bool = False, **kwargs: Any) 
         ),
         Div(*content, cls="space-y-3 mt-3"),
         open=open,
-        cls="eos-section group",
+        cls="eos-section eos-config-section group",
         **kwargs,
     )
 

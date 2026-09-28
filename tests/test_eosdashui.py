@@ -8,7 +8,7 @@ from fasthtml.common import Div, to_xml
 
 import akkudoktoreos.server.dash.admin as admin_module
 from akkudoktoreos.server.dash.admin import Admin, AdminConfig
-from akkudoktoreos.server.dash.components import Error, Page, Success
+from akkudoktoreos.server.dash.components import ConfigSection, Error, Page, Success
 from akkudoktoreos.server.dash.theme import EOSDASH_SCRIPT, EOSDASH_STYLES
 
 
@@ -228,6 +228,16 @@ def test_readonly_configuration_toggle_has_explicit_spacing() -> None:
     assert 'cls="eos-config-readonly-toggle"' in configuration_source
     assert ".eos-config-readonly-toggle" in styles
     assert "gap: .625rem" in styles
+
+
+def test_configuration_sections_use_compact_group_styling() -> None:
+    html = to_xml(ConfigSection("adapter", Div("settings")))
+    styles = to_xml(EOSDASH_STYLES)
+
+    assert "eos-config-section" in html
+    assert ".eos-config-settings { display: grid; gap: .625rem; }" in styles
+    assert ".eos-config-section > summary { padding: .55rem .75rem; }" in styles
+    assert "font-size: 1rem" in styles
 
 
 def test_status_messages_use_frankenui_alert_markup() -> None:
