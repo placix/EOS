@@ -8,12 +8,12 @@ import requests
 from fasthtml.common import A, Button, Li, Select, Ul
 from loguru import logger
 from monsterui.franken import (
+    H3,
     ButtonT,
     Card,
     Div,
     Form,
     Grid,
-    H3,
     LabelCheckboxX,
     Modal,
     ModalCloseButton,
@@ -848,6 +848,7 @@ def Configuration(
             hx_target="#page-content",
             hx_swap="innerHTML",
             hx_encoding="multipart/form-data",
+            data_eos_upload_form=True,
         ),
         header=ModalTitle("Replace EOS.config.json"),
         footer=ModalCloseButton("Cancel", cls=ButtonT.secondary),

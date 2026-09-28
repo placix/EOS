@@ -9,6 +9,7 @@ from fasthtml.common import Div, to_xml
 import akkudoktoreos.server.dash.admin as admin_module
 from akkudoktoreos.server.dash.admin import Admin, AdminConfig
 from akkudoktoreos.server.dash.components import Error, Page, Success
+from akkudoktoreos.server.dash.theme import EOSDASH_SCRIPT
 
 
 def test_page_uses_monsterui_navigation_and_theme_picker() -> None:
@@ -33,6 +34,21 @@ def test_page_uses_monsterui_navigation_and_theme_picker() -> None:
     assert "eos-nav-link uk-active" in html
     assert "<uk-theme-switcher" in html
     assert 'id="page-content"' in html
+    assert 'src="data:image/png;base64,' in html
+    assert "/eosdash/assets/icon.png" not in html
+
+
+def test_upload_modal_is_closed_and_reset_after_htmx_response() -> None:
+    configuration_source = (
+        Path(__file__).parents[1] / "src" / "akkudoktoreos" / "server" / "dash" / "configuration.py"
+    ).read_text(encoding="utf-8")
+    script = to_xml(EOSDASH_SCRIPT)
+
+    assert "data_eos_upload_form=True" in configuration_source
+    assert "htmx:beforeSwap" in script
+    assert "[data-eos-upload-form]" in script
+    assert "form.reset()" in script
+    assert "window.UIkit.modal(modal).hide()" in script
 
 
 def test_admin_configuration_contains_export_delete_action() -> None:

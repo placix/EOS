@@ -1,8 +1,10 @@
+import base64
 import json
 import re
+from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
-from fasthtml.common import A, H1, Button, Div, Img, Li, Select, Span
+from fasthtml.common import H1, A, Button, Div, Img, Li, Select, Span
 from monsterui.foundations import stringify
 from monsterui.franken import (  # Select: Does not work - using Select from FastHTML instead;; Button: Does not pass hx_vals - using Button from FastHTML instead
     H3,
@@ -29,6 +31,10 @@ from monsterui.franken import (  # Select: Does not work - using Select from Fas
 
 from akkudoktoreos.server.dash.context import request_url_for
 from akkudoktoreos.server.dash.markdown import Markdown
+
+EOS_LOGO_DATA_URI = "data:image/png;base64," + base64.b64encode(
+    (Path(__file__).parent / "assets" / "icon.png").read_bytes()
+).decode("ascii")
 
 # ---------------------------------------------------------------------------
 # HTMX CONTEXT
@@ -1170,7 +1176,7 @@ def Page(
             Div(
                 Div(
                     Img(
-                        src=request_url_for("/eosdash/assets/icon.png"),
+                        src=EOS_LOGO_DATA_URI,
                         alt="EOS",
                         width="36",
                         height="36",

@@ -2,7 +2,6 @@
 
 from fasthtml.common import Script, Style
 
-
 EOSDASH_STYLES = Style(
     """
     *, *::before, *::after { box-sizing: border-box; }
@@ -152,6 +151,15 @@ EOSDASH_SCRIPT = Script(
           event.preventDefault();
           editor.reportValidity();
         }
+      });
+
+      document.addEventListener('htmx:beforeSwap', (event) => {
+        const form = event.detail.requestConfig?.elt?.closest?.('[data-eos-upload-form]');
+        if (!form || !event.detail.shouldSwap) return;
+
+        const modal = form.closest('[data-uk-modal]');
+        form.reset();
+        if (modal && window.UIkit?.modal) window.UIkit.modal(modal).hide();
       });
 
       let dark = isDark();
