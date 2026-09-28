@@ -2,8 +2,9 @@ from typing import Optional, Union
 from urllib.parse import urlunsplit
 
 import requests
+from fasthtml.common import Span
 from loguru import logger
-from monsterui.franken import A, ButtonT, DivFullySpaced, P, UkIcon
+from monsterui.franken import A, DivFullySpaced, P
 from requests.exceptions import RequestException
 
 import akkudoktoreos.server.dash.eosstatus as eosstatus
@@ -47,22 +48,22 @@ def Footer(eos_host: Optional[str], eos_port: Optional[Union[str, int]], request
     public_host = request_host if eos_host in ("0.0.0.0", "::") else eos_host  # noqa: S104
     url_host = f"[{public_host}]" if public_host and ":" in public_host else public_host
     docs_url = urlunsplit(("http", f"{url_host}:{eos_port}", "/docs", "", ""))
-    alive_icon = None
+    is_alive = False
     if eos_host is None or eos_port is None:
         alive = "EOS server not given: {eos_host}:{eos_port}"
     else:
         alive = get_alive(eos_host, eos_port)
         if alive == "alive":
-            alive_icon = UkIcon("loader-circle", cls="h-4 w-4 animate-spin")
+            is_alive = True
             alive = f"EOS {url_host}:{eos_port}"
-    if alive_icon:
-        alive_cls = f"{ButtonT.primary} uk-link rounded-md"
-    else:
-        alive_cls = f"{ButtonT.secondary} uk-link rounded-md"
     return DivFullySpaced(
         P(
-            alive_icon,
-            A(alive, href=docs_url, target="_blank", cls=alive_cls),
+            Span(
+                cls=f"eos-footer-status-dot {'is-online' if is_alive else 'is-offline'}",
+                aria_hidden="true",
+            ),
+            A(alive, href=docs_url, target="_blank", cls="uk-link eos-footer-status-link"),
+            cls="eos-footer-status",
         ),
         P(
             A(

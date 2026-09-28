@@ -50,6 +50,11 @@ EOSDASH_STYLES = Style(
     .eos-footer { padding: 0 1.25rem 1.25rem; color: hsl(var(--muted-foreground)); font-size: .8125rem; }
     .eos-footer-links { display: grid !important; grid-template-columns: repeat(4, auto); gap: .75rem 1.5rem; }
     .eos-footer-links > * { margin: 0; min-width: 0; }
+    .eos-footer-status { display: flex; align-items: center; gap: .45rem; min-height: 1.5rem; }
+    .eos-footer-status-dot { width: .5rem; height: .5rem; border-radius: 50%; flex: 0 0 auto; }
+    .eos-footer-status-dot.is-online { background: #22c55e; }
+    .eos-footer-status-dot.is-offline { background: #ef4444; }
+    .eos-footer-status-link { color: inherit; overflow-wrap: anywhere; }
     .eos-page-heading { font-size: 1.25rem; font-weight: 650; margin: 0; }
     .eos-status-dot { width: .55rem; height: .55rem; border-radius: 999px; background: #22c55e; display: inline-block; }
     .eos-section { border: 1px solid hsl(var(--border)); border-radius: .4rem; background: hsl(var(--card)); }

@@ -25,4 +25,17 @@ def test_footer_docs_link_uses_reachable_host(bind_host, request_host, expected_
     link = footer.find("a", href=f"http://{expected_host}:8503/docs")
     assert link is not None
     assert link.get_text(strip=True) == f"EOS {expected_host}:8503"
+    assert footer.select_one(".eos-footer-status-dot.is-online") is not None
+    assert footer.select_one(".eos-footer-status") is not None
+    assert "loader-circle" not in str(footer)
+    assert "animate-spin" not in str(footer)
     health.assert_called_once_with(bind_host, 8503)
+
+
+def test_footer_uses_error_status_without_spinner() -> None:
+    with patch("akkudoktoreos.server.dash.footer.get_alive", return_value="Connection failed"):
+        footer = BeautifulSoup(to_xml(Footer("api.example.com", 8503, "dashboard.example.com")), "html.parser")
+
+    assert footer.select_one(".eos-footer-status-dot.is-offline") is not None
+    assert footer.select_one(".eos-footer-status-link").get_text(strip=True) == "Connection failed"
+    assert "animate-spin" not in str(footer)
