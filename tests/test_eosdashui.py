@@ -65,6 +65,7 @@ def test_admin_configuration_contains_export_delete_action() -> None:
         {},
     )
     html = to_xml(Div(*content))
+    soup = BeautifulSoup(html, "html.parser")
 
     assert "Delete file" in html
     assert 'name="selected_delete_file_name"' in html
@@ -72,6 +73,11 @@ def test_admin_configuration_contains_export_delete_action() -> None:
     assert "admin-delete-config-modal" not in html
     assert "The active EOS.config.json is never affected." in html
     assert "uk-btn-destructive" in html
+    assert len(soup.select(".eos-admin-action-row")) == 5
+    assert len(soup.select(".eos-admin-action-button")) == 5
+    assert len(soup.select(".eos-admin-action-control")) == 5
+    assert soup.select_one(".eos-admin-filename") is not None
+    assert soup.select_one(".eos-admin-file-tag") is not None
 
 
 def test_admin_delete_removes_only_selected_export(monkeypatch, tmp_path: Path) -> None:

@@ -79,6 +79,19 @@ EOSDASH_STYLES = Style(
     .eos-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
     .eos-config-readonly-toggle { display: flex; align-items: center; gap: .625rem; }
     .eos-config-readonly-toggle > input { flex: 0 0 auto; margin: 0; }
+    .eos-admin-action-summary { display: grid; gap: .75rem; min-width: 0; }
+    .eos-admin-action-row {
+        display: grid; grid-template-columns: 1.25rem 11rem minmax(0, 36rem);
+        align-items: center; gap: .75rem; min-width: 0;
+    }
+    .eos-admin-action-row > uk-icon { display: inline-flex; justify-content: center; }
+    .eos-admin-action-button { width: 11rem; min-width: 11rem; justify-content: center; white-space: nowrap; }
+    .eos-admin-action-control { width: 100%; min-width: 0; margin: 0; }
+    .eos-admin-action-copy { color: hsl(var(--muted-foreground)); overflow-wrap: anywhere; }
+    .eos-admin-filename { display: grid; grid-template-columns: auto minmax(9rem, 1fr) auto; align-items: center; gap: .4rem; }
+    .eos-admin-file-tag { width: 100%; min-width: 0; }
+    .eos-admin-action-status:empty { display: none; }
+    .eos-admin-action-description { margin-top: .75rem; color: hsl(var(--muted-foreground)); }
     .eos-json-editor { min-height: 32rem; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.55; tab-size: 2; }
     .eos-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: .75rem; }
     summary { cursor: pointer; }
@@ -99,6 +112,10 @@ EOSDASH_STYLES = Style(
         .eos-content { padding: .875rem; }
         .eos-footer { padding: 0 .875rem .875rem; }
         .eos-footer-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .eos-admin-action-row { grid-template-columns: 1.25rem minmax(0, 1fr); align-items: start; }
+        .eos-admin-action-button { width: 100%; min-width: 0; }
+        .eos-admin-action-control { grid-column: 2; }
+        .eos-admin-filename { grid-template-columns: auto minmax(0, 1fr) auto; }
     }
     @media (min-width: 901px) { .eos-mobile-only { display: none !important; } }
     """

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 import requests
-from fasthtml.common import Button, Select
+from fasthtml.common import Button, Select, Span
 from loguru import logger
 from monsterui.franken import (  # Select, TODO: Select from FrankenUI does not work - using Select from FastHTML instead
     H3,
@@ -26,7 +26,12 @@ from monsterui.franken import (  # Select, TODO: Select from FrankenUI does not 
     UkIcon,
 )
 
-from akkudoktoreos.server.dash.components import ConfigButton, ConfigSection, Error, Success
+from akkudoktoreos.server.dash.components import (
+    ConfigButton,
+    ConfigSection,
+    Error,
+    Success,
+)
 from akkudoktoreos.server.dash.configuration import get_nested_value
 from akkudoktoreos.server.dash.context import export_import_directory, request_url_for
 from akkudoktoreos.utils.datetimeutil import to_datetime
@@ -41,6 +46,34 @@ def _is_protected_config_file(file_path: Path, config_file_path: str) -> bool:
         return file_path.resolve() == Path(config_file_path).resolve()
     except (OSError, RuntimeError):
         return False
+
+
+def _configuration_action_card(
+    icon: str,
+    button: Button,
+    control: Any,
+    status: Any,
+    description: str,
+) -> Card:
+    """Render one consistently aligned configuration administration action."""
+    return Card(
+        Details(
+            Summary(
+                Div(
+                    Div(
+                        UkIcon(icon),
+                        button,
+                        control,
+                        cls="eos-admin-action-row",
+                    ),
+                    Div(status, cls="eos-admin-action-status"),
+                    cls="eos-admin-action-summary",
+                ),
+                cls="list-none",
+            ),
+            P(description, cls="eos-admin-action-description"),
+        ),
+    )
 
 
 def AdminCache(
@@ -334,147 +367,109 @@ def AdminConfig(
     return (
         category,
         [
-            Card(
-                Details(
-                    Summary(
-                        Grid(
-                            DivHStacked(
-                                UkIcon(icon="play"),
-                                ConfigButton(
-                                    "Save to file",
-                                    hx_post=request_url_for("/eosdash/admin"),
-                                    hx_target="#page-content",
-                                    hx_swap="innerHTML",
-                                    hx_vals='{"category": "configuration", "action": "save_to_file"}',
-                                ),
-                                P(f"'{config_file_path}' on '{eos_hostname}'"),
-                            ),
-                            status,
-                        ),
-                        cls="list-none",
-                    ),
-                    P(f"Safe actual configuration to '{config_file_path}' on '{eos_hostname}'."),
+            _configuration_action_card(
+                "save",
+                ConfigButton(
+                    "Save to file",
+                    cls=" eos-admin-action-button",
+                    hx_post=request_url_for("/eosdash/admin"),
+                    hx_target="#page-content",
+                    hx_swap="innerHTML",
+                    hx_vals='{"category": "configuration", "action": "save_to_file"}',
                 ),
+                P(
+                    f"'{config_file_path}' on '{eos_hostname}'",
+                    cls="eos-admin-action-control eos-admin-action-copy",
+                ),
+                status,
+                f"Save the current configuration to '{config_file_path}' on '{eos_hostname}'.",
             ),
-            Card(
-                Details(
-                    Summary(
-                        Grid(
-                            DivHStacked(
-                                UkIcon(icon="play"),
-                                ConfigButton(
-                                    "Revert to backup",
-                                    hx_post=request_url_for("/eosdash/admin"),
-                                    hx_target="#page-content",
-                                    hx_swap="innerHTML",
-                                    hx_vals='js:{ "category": "configuration", "action": "revert_to_backup", "backup_metadata": document.querySelector("[name=\'selected_backup_metadata\']").value }',
-                                ),
-                                Select(
-                                    *Options(*revert_to_backup_metadata_list),
-                                    id="backup_metadata",
-                                    name="selected_backup_metadata",  # Name of hidden input field with selected value
-                                    cls="border rounded px-3 py-2 mr-2",
-                                    placeholder="Select backup",
-                                ),
-                            ),
-                            revert_to_backup_status,
-                        ),
-                        cls="list-none",
-                    ),
-                    P(f"Revert configuration to backup on '{eosdash_hostname}'."),
+            _configuration_action_card(
+                "history",
+                ConfigButton(
+                    "Revert to backup",
+                    cls=" eos-admin-action-button",
+                    hx_post=request_url_for("/eosdash/admin"),
+                    hx_target="#page-content",
+                    hx_swap="innerHTML",
+                    hx_vals='js:{ "category": "configuration", "action": "revert_to_backup", "backup_metadata": document.querySelector("[name=\'selected_backup_metadata\']").value }',
                 ),
+                Select(
+                    *Options(*revert_to_backup_metadata_list),
+                    id="backup_metadata",
+                    name="selected_backup_metadata",
+                    cls="eos-admin-action-control border rounded px-3 py-2",
+                    placeholder="Select backup",
+                ),
+                revert_to_backup_status,
+                f"Revert the configuration to a backup on '{eosdash_hostname}'.",
             ),
-            Card(
-                Details(
-                    Summary(
-                        Grid(
-                            DivHStacked(
-                                UkIcon(icon="play"),
-                                ConfigButton(
-                                    "Export to file",
-                                    hx_post=request_url_for("/eosdash/admin"),
-                                    hx_target="#page-content",
-                                    hx_swap="innerHTML",
-                                    hx_vals='js:{"category": "configuration", "action": "export_to_file", "export_to_file_tag": document.querySelector("[name=\'chosen_export_file_tag\']").value }',
-                                ),
-                                P("'eos_config_"),
-                                Input(
-                                    id="export_file_tag",
-                                    name="chosen_export_file_tag",
-                                    value=export_to_file_next_tag,
-                                ),
-                                P(".json'"),
-                            ),
-                            export_to_file_status,
-                        ),
-                        cls="list-none",
-                    ),
-                    P(
-                        f"Export actual configuration to 'eos_config_{export_to_file_next_tag}.json' on '{eosdash_hostname}'."
-                    ),
+            _configuration_action_card(
+                "file-output",
+                ConfigButton(
+                    "Export to file",
+                    cls=" eos-admin-action-button",
+                    hx_post=request_url_for("/eosdash/admin"),
+                    hx_target="#page-content",
+                    hx_swap="innerHTML",
+                    hx_vals='js:{"category": "configuration", "action": "export_to_file", "export_to_file_tag": document.querySelector("[name=\'chosen_export_file_tag\']").value }',
                 ),
+                Div(
+                    Span("eos_config_"),
+                    Input(
+                        id="export_file_tag",
+                        name="chosen_export_file_tag",
+                        value=export_to_file_next_tag,
+                        cls="eos-admin-file-tag",
+                    ),
+                    Span(".json"),
+                    cls="eos-admin-action-control eos-admin-filename",
+                ),
+                export_to_file_status,
+                f"Export the current configuration to 'eos_config_{export_to_file_next_tag}.json' on '{eosdash_hostname}'.",
             ),
-            Card(
-                Details(
-                    Summary(
-                        Grid(
-                            DivHStacked(
-                                UkIcon(icon="play"),
-                                ConfigButton(
-                                    "Import from file",
-                                    hx_post=request_url_for("/eosdash/admin"),
-                                    hx_target="#page-content",
-                                    hx_swap="innerHTML",
-                                    hx_vals='js:{ "category": "configuration", "action": "import_from_file", "import_file_name": document.querySelector("[name=\'selected_import_file_name\']").value }',
-                                ),
-                                Select(
-                                    *Options(*import_from_file_names),
-                                    id="import_file_name",
-                                    name="selected_import_file_name",  # Name of hidden input field with selected value
-                                    cls="border rounded px-3 py-2 mr-2",
-                                    placeholder="Select file",
-                                ),
-                            ),
-                            import_from_file_status,
-                        ),
-                        cls="list-none",
-                    ),
-                    P(f"Import configuration from config file on '{eosdash_hostname}'."),
+            _configuration_action_card(
+                "file-input",
+                ConfigButton(
+                    "Import from file",
+                    cls=" eos-admin-action-button",
+                    hx_post=request_url_for("/eosdash/admin"),
+                    hx_target="#page-content",
+                    hx_swap="innerHTML",
+                    hx_vals='js:{ "category": "configuration", "action": "import_from_file", "import_file_name": document.querySelector("[name=\'selected_import_file_name\']").value }',
                 ),
+                Select(
+                    *Options(*import_from_file_names),
+                    id="import_file_name",
+                    name="selected_import_file_name",
+                    cls="eos-admin-action-control border rounded px-3 py-2",
+                    placeholder="Select file",
+                ),
+                import_from_file_status,
+                f"Import a configuration file on '{eosdash_hostname}'.",
             ),
-            Card(
-                Details(
-                    Summary(
-                        Grid(
-                            DivHStacked(
-                                UkIcon(icon="trash-2"),
-                                Button(
-                                    "Delete file",
-                                    type="button",
-                                    cls=f"uk-btn {ButtonT.destructive}",
-                                    hx_post=request_url_for("/eosdash/admin"),
-                                    hx_target="#page-content",
-                                    hx_swap="innerHTML",
-                                    hx_confirm="Delete the selected exported configuration file?",
-                                    hx_vals='js:{ "category": "configuration", "action": "delete_export_file", "delete_file_name": document.querySelector("[name=\'selected_delete_file_name\']").value }',
-                                ),
-                                Select(
-                                    *Options(*delete_export_file_names),
-                                    id="delete_file_name",
-                                    name="selected_delete_file_name",
-                                    cls="border rounded px-3 py-2 mr-2",
-                                    placeholder="Select file",
-                                ),
-                            ),
-                            delete_export_file_status,
-                        ),
-                        cls="list-none",
-                    ),
-                    P(
-                        f"Delete a saved configuration export from '{export_import_directory}' "
-                        f"on '{eosdash_hostname}'. The active EOS.config.json is never affected."
-                    ),
+            _configuration_action_card(
+                "trash-2",
+                Button(
+                    "Delete file",
+                    type="button",
+                    cls=f"uk-btn {ButtonT.destructive} eos-admin-action-button",
+                    hx_post=request_url_for("/eosdash/admin"),
+                    hx_target="#page-content",
+                    hx_swap="innerHTML",
+                    hx_confirm="Delete the selected exported configuration file?",
+                    hx_vals='js:{ "category": "configuration", "action": "delete_export_file", "delete_file_name": document.querySelector("[name=\'selected_delete_file_name\']").value }',
                 ),
+                Select(
+                    *Options(*delete_export_file_names),
+                    id="delete_file_name",
+                    name="selected_delete_file_name",
+                    cls="eos-admin-action-control border rounded px-3 py-2",
+                    placeholder="Select file",
+                ),
+                delete_export_file_status,
+                f"Delete a saved configuration export from '{export_import_directory}' "
+                f"on '{eosdash_hostname}'. The active EOS.config.json is never affected.",
             ),
         ],
     )
